@@ -1,16 +1,7 @@
 import { useNavigate } from "react-router-dom"
-import {
-    FiGrid,
-    //   FiCoffee,
-    //   FiUsers,
-    //   FiPackage,
-    //   FiBarChart2,
-    //   FiClipboard,
-    //   FiCalendar,
-    FiLogOut
-} from "react-icons/fi"
+import { FiGrid, FiLogOut } from "react-icons/fi"
 
-function Sidebar() {
+function Sidebar({ sidebarOpen, setSidebarOpen }) {
     const navigate = useNavigate()
 
     const items = [
@@ -24,10 +15,17 @@ function Sidebar() {
     ]
 
     return (
-        <div className="w-44 min-h-screen bg-[#071013] text-white flex flex-col rounded-r-3xl">
+        <div
+            className={`
+        fixed md:static z-50
+        w-44 min-h-screen bg-[#1d1d1d] text-white flex flex-col rounded-r-3xl
+        transition-transform duration-300
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}
+        >
 
-            {/* Company Name */}
-            <div className="p-4 text-xl text-center text-[#F5C6CC] font-bold  " >
+            {/* Logo */}
+            <div className="p-4 text-xl text-center text-[#F5C6CC] font-bold">
                 COSYPOS
             </div>
 
@@ -40,9 +38,12 @@ function Sidebar() {
                     return (
                         <div
                             key={index}
-                            onClick={() => navigate(item.path)}
-                            className="flex flex-col items-center justify-center p-2 rounded-base cursor-pointer
-                            hover:bg-[#F5C6CC] hover:text-[#7D5B67] hover:rounded-xl  transition-all duration-200"
+                            onClick={() => {
+                                navigate(item.path)
+                                setSidebarOpen(false)
+                            }}
+                            className="flex flex-col items-center justify-center p-2 cursor-pointer
+              hover:bg-[#F5C6CC] hover:text-[#7D5B67] hover:rounded-xl transition-all duration-200"
                         >
                             <div className="border-b border-[#0f1a20] w-14 pb-2 flex flex-col items-center">
 
@@ -50,31 +51,33 @@ function Sidebar() {
                                     <Icon size={15} className="text-[#F5C6CC]" />
                                 </div>
 
-                                <span className="text-xs mt-0">
-                                    {item.name}
-                                </span>
-
+                                <span className="text-xs">{item.name}</span>
                             </div>
-
                         </div>
                     )
                 })}
 
             </div>
-            <div className="p-4">
-                <div
-                    onClick={() => navigate("/Login")}
-                    className=" group flex flex-col items-center justify-center py-2 px-1 cursor-pointer
-                    hover:bg-[#F5C6CC] hover:text-[#7D5B67] hover:rounded-xl transition-all duration-200"
-                >
-                    <div className=" rounded-full flex items-center justify-center">
-                        <FiLogOut size={15} className="text-[#F5C6CC] group-hover:text-[#7D5B67]" />
-                    </div>
 
-                    <span className="text-xs">
-                        Logout
-                    </span>
+            {/* Logout */}
+            <div className="p-4">
+
+                <div
+                    onClick={() => {
+                        navigate("/login")
+                        setSidebarOpen(false)
+                    }}
+                    className="group flex flex-col items-center justify-center py-2 px-1 cursor-pointer
+          hover:bg-[#F5C6CC] hover:text-[#7D5B67] hover:rounded-xl transition-all duration-200"
+                >
+                    <FiLogOut
+                        size={15}
+                        className="text-[#F5C6CC] group-hover:text-[#7D5B67]"
+                    />
+
+                    <span className="text-xs">Logout</span>
                 </div>
+
             </div>
         </div>
     )
