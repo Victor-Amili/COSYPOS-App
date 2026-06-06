@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, Trash2, CreditCard } from "lucide-react";
-import { dummyOrders, getStatusBadgeStyle, getStatusDot } from "../data/dummyData";
+import { dummyOrders, getStatusBadgeStyle, getStatusDot } from "../datas/dummyData";
 
 function Orders() {
   const [activeTab, setActiveTab] = useState("all");
