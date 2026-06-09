@@ -6,97 +6,115 @@ function Navbar({ setSidebarOpen }) {
     const location = useLocation()
 
     const getPageTitle = () => {
+
+        // Staff Profile Page
+        if (
+            location.pathname.startsWith("/staff/profile/")
+        ) {
+            return location.state?.name || "Staff Profile"
+        }
+
         switch (location.pathname) {
             case "/":
                 return "Dashboard"
+
+            case "/staff":
+                return "Staff Management"
+
+            case "/staff/attendance":
+                return "Attendance"
+
             case "/menu":
                 return "Menu"
-            case "/staff":
-                return "Staff"
+
             case "/inventory":
                 return "Inventory"
+
             case "/reports":
                 return "Reports"
+
             case "/orders":
                 return "Order/Table"
+
             case "/reservation":
                 return "Reservation"
+
             default:
                 return "Dashboard"
         }
     }
 
     return (
-        <div className="bg-black text-white px-6 py-3">
+        <div className="h-16 px-6 flex items-center justify-between bg-black">
 
-            {/* LINE 1 */}
-            <div className="flex items-center justify-between">
-
-                {/* Logo */}
-                <div className="text-[#F5C6CC] font-bold text-xl">
-                    COSYPOS
-                </div>
-
-                {/* Right Icons */}
-                <div className="flex items-center gap-4">
-
-                    {/* Notification */}
-                    <div
-                        onClick={() => navigate("/notifications")}
-                        className="relative cursor-pointer"
-                    >
-                        <FiBell size={15} />
-
-                        <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-[#F5C6CC]
-            text-black text-[10px] flex items-center justify-center font-bold">
-                            3
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="text-gray-500">|</div>
-
-                    {/* Profile */}
-                    <div
-                        onClick={() => navigate("/profile")}
-                        className="w-8 h-8 rounded-full overflow-hidden cursor-pointer border border-pink-300"
-                    >
-                        <img
-                            src="https://i.pravatar.cc/150"
-                            className="w-full h-full object-cover"
-                            alt="profile"
-                        />
-                    </div>
-
-                    {/* Hamburger */}
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="text-2xl md:hidden"
-                    >
-                        <FiMenu />
-                    </button>
-
-                </div>
-            </div>
-
-            {/* LINE 2 */}
-            <div className="flex items-center mt-2">
+            {/* Left Side */}
+            <div className="flex items-center">
 
                 <button
                     onClick={() => navigate(-1)}
-                    className="text-white text-xl mr-2 bg-[#071013] rounded-full p-1 
-          hover:bg-[#F5C6CC] hover:text-[#7D5B67] transition"
+                    className="text-white text-2xl cursor-pointer mr-2 bg-[#071013] rounded-full p-1
+                flex items-center justify-center
+                hover:bg-[#F5C6CC] hover:text-[#7D5B67] transition-colors duration-200"
                 >
                     <FiChevronLeft />
                 </button>
 
-                <h1 className="text-2xl font-bold">
+                <h1 className="text-3xl font-bold text-white">
                     {getPageTitle()}
                 </h1>
 
             </div>
 
+            {/* Right Side */}
+            <div className="flex items-center gap-4">
+
+                {/* Notification */}
+                <div
+                    onClick={() => navigate("/notifications")}
+                    className="relative cursor-pointer"
+                >
+                    <FiBell size={15} className="text-white" />
+
+                    <div
+                        className="absolute -top-2 -right-2
+                    w-4 h-4 rounded-full bg-[#F5C6CC]
+                    text-black text-[10px]
+                    flex items-center justify-center font-bold"
+                    >
+                        3
+                    </div>
+                </div>
+
+                {/* Divider */}
+                <div className="text-gray-500 text-xl">
+                    |
+                </div>
+
+                {/* Profile */}
+                <div
+                    onClick={() => navigate("/profile")}
+                    className="w-10 h-10 rounded-full overflow-hidden
+                cursor-pointer border-2 border-pink-300"
+                >
+                    <img
+                        src="https://i.pravatar.cc/150"
+                        alt="profile"
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+
+                {/* Mobile Hamburger */}
+                <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="text-2xl md:hidden"
+                >
+                    <FiMenu />
+                </button>
+
+            </div>
+
         </div>
+
     )
 }
 
