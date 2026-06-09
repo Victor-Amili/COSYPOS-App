@@ -18,9 +18,13 @@ function Navbar({ setSidebarOpen }) {
             case "/reports":
                 return "Reports"
             case "/orders":
-                return "Order/Table"
+                return "Order"
             case "/reservation":
                 return "Reservation"
+            case "/notifications":
+                return "Notifications"
+            case "/orders-tables":
+                return "Order/Table"
             default:
                 return "Dashboard"
         }

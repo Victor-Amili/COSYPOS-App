@@ -1,6 +1,3 @@
-// Dummy data for YOUR pages only
-// Later replace with Firebase
-
 export const dummyOrders = [
   {
     id: "ORD-001",

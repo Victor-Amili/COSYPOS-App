@@ -1,3 +1,4 @@
+// src/pages/Notificaton.jsx
 import { useState } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { dummyNotifications } from "../datas/dummyData";
@@ -22,17 +23,14 @@ function Notificaton() {
   };
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Notification</h2>
-          <p className="text-sm text-gray-400">You&apos;ve {unreadCount} unread notification</p>
-        </div>
-      </div>
+    <div className="p-6"  >
+      {/* Only the subtitle — no duplicate title */}
+      <p className="text-sm text-gray-400 mb-6 -mt-12">
+        You&apos;ve {unreadCount} unread notification
+      </p>
 
-      {/* Tabs and Mark All */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Tabs and Mark All in one row */}
+      <div className="flex items-center justify-between mb-6 mt-12">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("all")}
@@ -64,7 +62,7 @@ function Notificaton() {
         </button>
       </div>
 
-      {/* Notifications List */}
+      {/* Notification List */}
       <div className="space-y-3">
         {filteredNotifications.map((notification) => (
           <div
@@ -75,12 +73,10 @@ function Notificaton() {
                 : "bg-[#1e1e1e] border border-white/5"
             }`}
           >
-            {/* Icon Box */}
             <div className="w-12 h-12 rounded-xl bg-pink-400/20 flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-5 h-5 text-pink-400" />
             </div>
 
-            {/* Content */}
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-medium text-white mb-0.5">
                 {notification.title}
@@ -90,12 +86,10 @@ function Notificaton() {
               </p>
             </div>
 
-            {/* Date */}
             <span className="text-xs text-gray-500 flex-shrink-0">
               {notification.date}
             </span>
 
-            {/* Delete Button */}
             <button
               onClick={() => deleteNotification(notification.id)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/30 transition-all flex-shrink-0"
