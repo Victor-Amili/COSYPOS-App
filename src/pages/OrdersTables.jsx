@@ -1,4 +1,4 @@
-// src/pages/OrdersTables.jsx
+
 import { useState } from "react";
 import { Plus, Minus, Pencil, Send, ChevronLeft, Trash2, ShoppingCart, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";

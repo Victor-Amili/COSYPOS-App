@@ -5,6 +5,10 @@ import Orders from "./pages/Orders";
 import OrdersTables from "./pages/OrdersTables";
 import Notificaton from "./pages/Notificaton";
 import TableOrder from "./pages/OrderQrPage";
+import StaffManagement from "./pages/StaffManagement"
+import Attendance from "./pages/Attendance"
+import StaffProfile from "./pages/StaffProfile"
+
 function App() {
   return (
     <Routes>
@@ -16,7 +20,11 @@ function App() {
         <Route path="/notifications" element={<Notificaton />} />
         <Route path="/table/:tableId" element={<TableOrder />} />
 
+        <Route path="/staff" element={<StaffManagement />} />
+        <Route path="/staff/attendance" element={<Attendance />} />
+        <Route path="/staff/profile/:id" element={<StaffProfile />} />
       </Route>
+
     </Routes>
   )
 }
