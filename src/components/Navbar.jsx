@@ -59,7 +59,7 @@ function Navbar({ setSidebarOpen }) {
                     {/* Profile */}
                     <div
                         onClick={() => navigate("/profile")}
-                        className="w-8 h-8 rounded-full overflow-hidden cursor-pointer border border-pink-300"
+                        className="w-8 h-8 rounded-full overflow-hidden cursor-pointer border border-brand"
                     >
                         <img
                             src="https://i.pravatar.cc/150"
