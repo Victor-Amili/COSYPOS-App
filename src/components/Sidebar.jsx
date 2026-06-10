@@ -5,7 +5,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
     const navigate = useNavigate()
 
     const items = [
-        { name: "Dashboard", icon: FiGrid, path: "/" },
+        { name: "Dashboard", icon: FiGrid, path: "/dashboard" },
         { name: "Menu", icon: FiGrid, path: "/menu" },
         { name: "Staff", icon: FiGrid, path: "/staff" },
         { name: "Inventory", icon: FiGrid, path: "/inventory" },

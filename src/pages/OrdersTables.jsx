@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Plus, Minus, Pencil, Send, ChevronLeft, Trash2, ShoppingCart, X } from "lucide-react";
+import { Plus, Minus, Pencil, Send, Trash2, ShoppingCart, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { dummyMenuCategories, dummyMenuItems } from "../datas/dummyData";
 
@@ -79,7 +79,7 @@ function OrdersTables() {
 
   // Cart panel content (shared between desktop and mobile drawer)
   const CartContent = () => (
-    <div className="bg-[#1e1e1e] rounded-2xl lg:rounded-none border border-white/5 lg:border-none flex flex-col h-full overflow-hidden">
+    <div className="bg-[#1d1d1d] rounded-2xl lg:rounded-none border border-white/5 lg:border-none flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="p-3 sm:p-4 border-b border-white/5 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
@@ -230,13 +230,7 @@ function OrdersTables() {
         {/* Header with cart button on mobile */}
         <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => window.history.back()}
-              className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors flex-shrink-0"
-            >
-              <ChevronLeft className="w-4 h-4 text-white" />
-            </button>
-            <h2 className="text-lg sm:text-xl font-semibold text-white">Orders</h2>
+           
           </div>
 
           {/* Mobile cart button */}

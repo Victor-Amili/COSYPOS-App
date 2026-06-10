@@ -746,6 +746,7 @@ function PaymentModal({ order, onClose }) {
 
     const handleNumber = (num) => setTip(tip === "0" ? num : tip + num);
     const handleDelete = () => setTip(tip.slice(0, -1) || "0");
+    const handleClear = () => setTip("0");
 
     const paymentMethods = [
         { id: "cash", label: "Cash", icon: "💵" },
@@ -984,7 +985,7 @@ function PaymentModal({ order, onClose }) {
                                         </button>
                                     ))}
                                     <button
-                                        onClick={handleDelete}
+                                        onClick={handleClear}
                                         className="aspect-square rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all active:scale-95 flex items-center justify-center text-xs font-medium"
                                     >
                                         CLR
@@ -1036,7 +1037,7 @@ function PaymentModal({ order, onClose }) {
                                     </button>
                                 ))}
                                 <button
-                                    onClick={handleDelete}
+                                    onClick={handleClear}
                                     className="aspect-square rounded-2xl bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all active:scale-95 flex items-center justify-center text-xs font-medium"
                                 >
                                     CLEAR
