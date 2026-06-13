@@ -1,8 +1,9 @@
-// src/pages/Orders.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Search, Pencil, Trash2, CreditCard, X, Printer, LayoutGrid } from "lucide-react";
-import { dummyOrders, getStatusBadgeStyle, getStatusDot } from "../datas/dummyData";
+import { getStatusBadgeStyle, getStatusDot } from "../datas/dummyData";
+import { db } from "../firebase/config";
+import { collection, onSnapshot, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
 function Orders() {
     const navigate = useNavigate();
@@ -14,8 +15,21 @@ function Orders() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
-    const [orders, setOrders] = useState(dummyOrders);
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
 
+
+    // Fetch orders from Firebase (real-time)
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, "orders"), (snap) => {
+            const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            // Sort by createdAt newest first
+            data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            setOrders(data);
+            setLoading(false);
+        });
+        return () => unsub();
+    }, []);
     // Auto-open payment modal from QR code scan
     useEffect(() => {
         const tableFromQR = searchParams.get("table");
@@ -68,21 +82,44 @@ function Orders() {
         setShowPaymentModal(true);
     };
 
-    const handleDeleteOrder = (orderId) => {
-        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    const handleDeleteOrder = async (orderId) => {
+        if (!window.confirm("Delete this order?")) return;
+        try {
+            await deleteDoc(doc(db, "orders", orderId));
+            // No need to update state - onSnapshot handles it
+        } catch (error) {
+            console.error("Delete error:", error);
+            alert("Failed to delete order");
+        }
     };
 
-    const handleAddOrder = (newOrder) => {
-        setOrders((prev) => [newOrder, ...prev]);
-        setShowAddModal(false);
+    const handleAddOrder = async (newOrder) => {
+        try {
+            // Add to Firebase - onSnapshot will update state
+            await addDoc(collection(db, "orders"), {
+                ...newOrder,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+            setShowAddModal(false);
+        } catch (error) {
+            console.error("Add error:", error);
+            alert("Failed to create order");
+        }
     };
-
-    const handleEditOrder = (updatedOrder) => {
-        setOrders((prev) =>
-            prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
-        );
-        setShowEditModal(false);
-        setSelectedOrder(null);
+    const handleEditOrder = async (updatedOrder) => {
+        try {
+            const { id, ...data } = updatedOrder;
+            await updateDoc(doc(db, "orders", id), {
+                ...data,
+                updatedAt: serverTimestamp(),
+            });
+            setShowEditModal(false);
+            setSelectedOrder(null);
+        } catch (error) {
+            console.error("Update error:", error);
+            alert("Failed to update order");
+        }
     };
 
     return (
@@ -95,11 +132,10 @@ function Orders() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-                                activeTab === tab.id
-                                    ? "bg-pink-400 text-white"
-                                    : "bg-white/5 text-gray-400 hover:bg-white/10"
-                            }`}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${activeTab === tab.id
+                                ? "bg-pink-400 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                }`}
                         >
                             {tab.label}
                         </button>
@@ -151,9 +187,16 @@ function Orders() {
                 </div>
             </div>
 
+
+
             {/* Orders Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
-                {filteredOrders.length === 0 ? (
+            <div div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
+                {loading ? (
+
+                    <div className="col-span-full text-center py-12 text-gray-500 text-sm">
+                        Loading orders...
+                    </div>
+                ) : filteredOrders.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-gray-500 text-sm">
                         No orders found
                     </div>
@@ -258,49 +301,56 @@ function Orders() {
                     ))
                 )}
             </div>
-
             {/* MODALS */}
-            {showAddModal && (
-                <AddOrderModal onClose={() => setShowAddModal(false)} onAdd={handleAddOrder} />
-            )}
-            {showEditModal && selectedOrder && (
-                <EditOrderModal order={selectedOrder} onClose={() => setShowEditModal(false)} onSave={handleEditOrder} />
-            )}
+            {
+                showAddModal && (
+                    <AddOrderModal onClose={() => setShowAddModal(false)} onAdd={handleAddOrder} />
+                )
+            }
+            {
+                showEditModal && selectedOrder && (
+                    <EditOrderModal order={selectedOrder} onClose={() => setShowEditModal(false)} onSave={handleEditOrder} />
+                )
+            }
 
             {/* PIN MODAL */}
-            {showPinModal && (
-                <div className="fixed inset-0 bg-black/70 flex justify-end z-[100]">
-                    <div
-                        className="bg-[#1e1e1e] h-full w-full sm:w-[400px] p-6 sm:p-8 flex flex-col justify-center"
-                        style={{
-                            borderTopLeftRadius: "12px",
-                            borderBottomLeftRadius: "12px",
-                        }}
-                    >
-                        <div className="text-center">
-                            <h3 className="text-lg font-semibold text-white mb-2">Enter your PIN</h3>
-                            <p className="text-xs text-gray-400 mb-6">Please enter your 4-digit PIN</p>
-                            <PinInput onConfirm={handlePinConfirm} onClose={() => setShowPinModal(false)} />
+            {
+                showPinModal && (
+                    <div className="fixed inset-0 bg-black/70 flex justify-end z-[100]">
+                        <div
+                            className="bg-[#1e1e1e] h-full w-full sm:w-[400px] p-6 sm:p-8 flex flex-col justify-center"
+                            style={{
+                                borderTopLeftRadius: "12px",
+                                borderBottomLeftRadius: "12px",
+                            }}
+                        >
+                            <div className="text-center">
+                                <h3 className="text-lg font-semibold text-white mb-2">Enter your PIN</h3>
+                                <p className="text-xs text-gray-400 mb-6">Please enter your 4-digit PIN</p>
+                                <PinInput onConfirm={handlePinConfirm} onClose={() => setShowPinModal(false)} />
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* PAYMENT MODAL */}
-            {showPaymentModal && selectedOrder && (
-                <div className="fixed inset-0 bg-black/70 flex justify-end z-[100]">
-                    <div
-                        className="bg-[#1e1e1e] h-full w-full sm:w-[700px] flex flex-col sm:flex-row overflow-hidden"
-                        style={{
-                            borderTopLeftRadius: "12px",
-                            borderBottomLeftRadius: "12px",
-                        }}
-                    >
-                        <PaymentModal order={selectedOrder} onClose={() => setShowPaymentModal(false)} />
+            {
+                showPaymentModal && selectedOrder && (
+                    <div className="fixed inset-0 bg-black/70 flex justify-end z-[100]">
+                        <div
+                            className="bg-[#1e1e1e] h-full w-full sm:w-[700px] flex flex-col sm:flex-row overflow-hidden"
+                            style={{
+                                borderTopLeftRadius: "12px",
+                                borderBottomLeftRadius: "12px",
+                            }}
+                        >
+                            <PaymentModal order={selectedOrder} onClose={() => setShowPaymentModal(false)} />
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
 
@@ -342,7 +392,6 @@ function AddOrderModal({ onClose, onAdd }) {
         );
 
         const newOrder = {
-            id: `ORD-${Date.now()}`,
             orderNumber: String(Math.floor(Math.random() * 900) + 100),
             customerName: customerName || "Guest",
             tableNumber: tableNumber || "01",
@@ -933,8 +982,8 @@ function PaymentModal({ order, onClose }) {
                                         key={method.id}
                                         onClick={() => setPaymentMethod(method.id)}
                                         className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${paymentMethod === method.id
-                                                ? "bg-pink-400/20 border-pink-400/50 text-pink-300"
-                                                : "bg-[#2a2a2a] border-white/5 text-gray-400 hover:border-white/10"
+                                            ? "bg-pink-400/20 border-pink-400/50 text-pink-300"
+                                            : "bg-[#2a2a2a] border-white/5 text-gray-400 hover:border-white/10"
                                             }`}
                                     >
                                         <span className="text-lg">{method.icon}</span>

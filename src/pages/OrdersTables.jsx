@@ -1,10 +1,35 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Minus, Pencil, Send, Trash2, ShoppingCart, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { dummyMenuCategories, dummyMenuItems } from "../datas/dummyData";
+import { db } from "../firebase/config";
+import { collection, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
+
 
 function OrdersTables() {
+
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
+
+
+  // Fetch categories and products from Firebase
+  useEffect(() => {
+    const unsubCat = onSnapshot(collection(db, "categories"), (snap) => {
+      setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubProd = onSnapshot(collection(db, "products"), (snap) => {
+      setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+
+    return () => {
+      unsubCat();
+      unsubProd();
+    };
+  }, []);
+
   const [quantities, setQuantities] = useState({});
   const [cart, setCart] = useState([
     { id: 1, name: "Chicken Parmesan", qty: 2, price: 55.0 },
@@ -60,11 +85,11 @@ function OrdersTables() {
       prev.map((item) =>
         item.id === editingItem.id
           ? {
-              ...item,
-              name: editingItem.name,
-              price: parseFloat(editingItem.price) || 0,
-              qty: parseInt(editingItem.qty) || 1,
-            }
+            ...item,
+            name: editingItem.name,
+            price: parseFloat(editingItem.price) || 0,
+            qty: parseInt(editingItem.qty) || 1,
+          }
           : item
       )
     );
@@ -84,6 +109,9 @@ function OrdersTables() {
       <div className="p-3 sm:p-4 border-b border-white/5 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-base sm:text-lg font-semibold text-white">Table 01</h2>
+          {currentOrderId && (
+            <p className="text-[10px] text-pink-400">Order #{currentOrderId.slice(-4)}</p>
+          )}
           <button
             onClick={() => setShowCartDrawer(false)}
             className="lg:hidden text-gray-400 hover:text-white transition-colors"
@@ -195,8 +223,10 @@ function OrdersTables() {
         <p className="text-[9px] sm:text-[10px] text-gray-500 mb-1 sm:mb-1.5">Payment Method</p>
         <div className="bg-white rounded-xl p-2 sm:p-3 flex flex-col items-center">
           <QRCodeSVG
-            value="http://localhost:5173/orders?table=01&pay=true"
-            size={80}
+            value={currentOrderId
+              ? `${window.location.origin}/orders?order=${currentOrderId}&pay=true`
+              : `${window.location.origin}/orders?table=01&pay=true`
+            } size={80}
             bgColor="#ffffff"
             fgColor="#000000"
             level="H"
@@ -205,15 +235,58 @@ function OrdersTables() {
             Scan QR Code to Pay
           </p>
           <p className="text-[8px] text-gray-500 mt-0.5 text-center break-all px-2">
-            http://localhost:5173/orders?table=01&pay=true
-          </p>
+            {currentOrderId
+              ? `${window.location.origin}/orders?order=${currentOrderId}&pay=true`
+              : "No active order - add items and send to kitchen"
+            }          </p>
         </div>
       </div>
 
       {/* Send Button - ALWAYS VISIBLE at bottom */}
       <div className="p-3 sm:p-4 pt-0 flex-shrink-0">
         <button
-          onClick={() => alert("Order sent to kitchen!")}
+          onClick={async () => {
+            if (cart.length === 0) {
+              alert("Cart is empty!");
+              return;
+            }
+            try {
+              const orderData = {
+                orderNumber: String(Math.floor(Math.random() * 9000) + 1000), // Random 4-digit
+                tableNumber: "01", // You can make this dynamic later
+                tableId: "table_1st_01",
+                customerName: "Watson Joyce", // Make dynamic later
+                customerPhone: "",
+                customerEmail: "",
+                status: "in-process",
+                statusText: "In Kitchen",
+                items: cart.map(item => ({
+                  name: item.name,
+                  qty: item.qty,
+                  price: item.price,
+                  productId: item.id
+                })),
+                subtotal: subtotal,
+                tax: tax,
+                tip: 0,
+                total: total,
+                paymentMethod: "cash",
+                paymentStatus: "pending",
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              };
+
+              const docRef = await addDoc(collection(db, "orders"), orderData);
+              setCurrentOrderId(docRef.id);
+              alert("Order sent to kitchen!");
+              setCart([]); // Clear cart after sending
+            } catch (error) {
+              console.error("Error creating order:", error);
+              alert("Failed to send order");
+            }
+          }}
           className="w-full flex items-center justify-center gap-2 py-2 sm:py-2.5 bg-pink-400 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-pink-500 transition-all"
         >
           <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -230,7 +303,7 @@ function OrdersTables() {
         {/* Header with cart button on mobile */}
         <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
-           
+
           </div>
 
           {/* Mobile cart button */}
@@ -249,7 +322,11 @@ function OrdersTables() {
 
         {/* Categories - 2 cols mobile, 3 tablet, 4 desktop */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          {dummyMenuCategories.map((category) => (
+          {loading ? (
+            <div className="col-span-full text-center py-8 text-gray-500 text-sm">Loading categories...</div>
+          ) : categories.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-gray-500 text-sm">No categories found</div>
+          ) : categories.map((category) => (
             <div
               key={category.id}
               className="bg-[#1e1e1e] rounded-2xl p-3 sm:p-4 border border-white/5 hover:border-pink-400/30 transition-all cursor-pointer group"
@@ -261,7 +338,7 @@ function OrdersTables() {
                 {category.name}
               </h3>
               <p className="text-[10px] sm:text-xs text-gray-500">
-                {category.items} items
+                {category.itemCount} items
               </p>
             </div>
           ))}
@@ -269,7 +346,11 @@ function OrdersTables() {
 
         {/* Menu Items - 2 cols mobile, 3 tablet, 4 desktop */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {dummyMenuItems.map((item) => (
+          {loading ? (
+            <div className="col-span-full text-center py-8 text-gray-500 text-sm">Loading menu...</div>
+          ) : products.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-gray-500 text-sm">No items found</div>
+          ) : products.filter(p => p.status === "active").map((item) => (
             <div
               key={item.id}
               className="bg-[#1e1e1e] rounded-2xl p-3 sm:p-4 border border-white/5"
@@ -278,7 +359,11 @@ function OrdersTables() {
                 {item.status}
               </span>
               <div className="w-full aspect-square rounded-xl bg-[#2a2a2a] flex items-center justify-center mb-2 sm:mb-3">
-                <span className="text-2xl sm:text-4xl">{item.image}</span>
+                {item.image ? (
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                ) : (
+                  <span className="text-2xl sm:text-4xl">🍽️</span>
+                )}
               </div>
               <h3 className="text-xs sm:text-sm font-medium text-white mb-0.5 sm:mb-1 truncate">
                 {item.name}

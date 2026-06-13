@@ -5,6 +5,19 @@ function StaffProfile() {
 
     const employee = location.state || {}
 
+    // Add computed fields for display
+    const displayData = {
+        name: employee.fullName || employee.name || "N/A",
+        email: employee.email || "N/A",
+        phone: employee.phone || "N/A",
+        dob: employee.dateOfBirth || "N/A",
+        address: employee.address || "N/A",
+        role: employee.role || "N/A",
+        salary: employee.salary ? `$${employee.salary}` : "N/A",
+        timings: employee.timings || "N/A",
+        image: employee.avatar || employee.image || "https://i.pravatar.cc/300"
+    }
+
     return (
         <div className="w-full min-h-full  p-10">
 
@@ -26,8 +39,8 @@ function StaffProfile() {
                     {/* IMAGE CARD */}
                     <div className="bg-white rounded-2xl overflow-hidden h-[350px] flex items-center justify-center">
                         <img
-                            src={employee.image || "https://i.pravatar.cc/300"}
-                            alt={employee.name}
+                            src={displayData.image || "https://i.pravatar.cc/300"}
+                            alt={displayData.name}
                             className="w-full h-full object-cover"
                         />
                     </div>
@@ -67,28 +80,28 @@ function StaffProfile() {
                                 <div>
                                     <p className="text-pink-200 text-sm">Full Name</p>
                                     <p className="text-white text-lg">
-                                        {employee.name || "N/A"}
+                                        {displayData.name}
                                     </p>
                                 </div>
 
                                 <div>
                                     <p className="text-pink-200 text-sm">Email</p>
                                     <p className="text-white text-lg">
-                                        {employee.email || "N/A"}
+                                        {displayData.email}
                                     </p>
                                 </div>
 
                                 <div>
                                     <p className="text-pink-200 text-sm">Phone Number</p>
                                     <p className="text-white text-lg">
-                                        {employee.phone || "N/A"}
+                                        {displayData.phone}
                                     </p>
                                 </div>
 
                                 <div>
                                     <p className="text-pink-200 text-sm">Date of Birth</p>
                                     <p className="text-white text-lg">
-                                        {employee.dob || "N/A"}
+                                        {displayData.dob}
                                     </p>
                                 </div>
 
@@ -98,7 +111,7 @@ function StaffProfile() {
                             <div className="mt-6">
                                 <p className="text-pink-200 text-sm">Address</p>
                                 <p className="text-white text-lg">
-                                    {employee.address || "N/A"}
+                                    {displayData.address}
                                 </p>
                             </div>
 
@@ -120,28 +133,21 @@ function StaffProfile() {
                                 <div>
                                     <p className="text-pink-200 text-sm">Role</p>
                                     <p className="text-white text-lg">
-                                        {employee.role || "N/A"}
+                                        {displayData.role}
                                     </p>
                                 </div>
 
                                 <div>
                                     <p className="text-pink-200 text-sm">Salary</p>
                                     <p className="text-white text-lg">
-                                        {employee.salary || "N/A"}
+                                        {displayData.salary}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <p className="text-pink-200 text-sm">Shift Start</p>
+                                    <p className="text-pink-200 text-sm">Shift timing</p>
                                     <p className="text-white text-lg">
-                                        {employee.shiftStart || "N/A"}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-pink-200 text-sm">Shift End</p>
-                                    <p className="text-white text-lg">
-                                        {employee.shiftEnd || "N/A"}
+                                        {displayData.timings}
                                     </p>
                                 </div>
 

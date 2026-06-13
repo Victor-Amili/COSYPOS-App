@@ -2,6 +2,9 @@ import { FiDollarSign, FiDownload } from "react-icons/fi"
 import { FaMoneyBillWave } from "react-icons/fa"
 import { MdTableRestaurant } from "react-icons/md"
 import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { db } from "../firebase/config"
+import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore"
 
 import {
   ResponsiveContainer,
@@ -23,21 +26,93 @@ function Dashboard() {
     year: "numeric",
   })
 
-  const chartData = [
-    { month: "JAN", sales: 3000, revenue: 1900 },
-    { month: "FEB", sales: 4000, revenue: 2200 },
-    { month: "MAR", sales: 2300, revenue: 2200 },
-    { month: "APR", sales: 3500, revenue: 2000 },
-    { month: "MAY", sales: 4800, revenue: 3000 },
-    { month: "JUN", sales: 4000, revenue: 3200 },
-    { month: "JUL", sales: 4700, revenue: 3000 },
-    { month: "AUG", sales: 4200, revenue: 3400 },
-    { month: "SEP", sales: 4100, revenue: 2800 },
-    { month: "OCT", sales: 3300, revenue: 3000 },
-    { month: "NOV", sales: 2700, revenue: 2000 },
-    { month: "DEC", sales: 4700, revenue: 2600 }
-  ]
+  const [dailySales, setDailySales] = useState(0)
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0)
+  const [occupiedTables, setOccupiedTables] = useState(0)
+  const [totalTables, setTotalTables] = useState(0)
+  const [popularDishes, setPopularDishes] = useState([])
+  const [chartData, setChartData] = useState([])
+  const [loading, setLoading] = useState(true)
 
+  // Fetch real data from Firebase
+  useEffect(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    // 1. Listen to orders (real-time)
+    const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
+      const orders = snap.docs.map(d => d.data())
+
+      // Calculate daily sales (today's paid orders)
+      const todaySales = orders
+        .filter(o => o.paymentStatus === "paid" && o.createdAt?.toDate?.() >= today)
+        .reduce((sum, o) => sum + (o.total || 0), 0)
+      setDailySales(todaySales)
+
+      // Calculate monthly revenue (this month's paid orders)
+      const monthRevenue = orders
+        .filter(o => o.paymentStatus === "paid" && o.createdAt?.toDate?.() >= startOfMonth)
+        .reduce((sum, o) => sum + (o.total || 0), 0)
+      setMonthlyRevenue(monthRevenue)
+
+      // Build chart data (group by month)
+      const monthlyData = {}
+      orders.forEach(o => {
+        if (o.paymentStatus !== "paid") return
+        const date = o.createdAt?.toDate?.() || new Date()
+        const month = date.toLocaleString("en-US", { month: "short" }).toUpperCase()
+        if (!monthlyData[month]) monthlyData[month] = { month, sales: 0, revenue: 0 }
+        monthlyData[month].sales += 1
+        monthlyData[month].revenue += o.total || 0
+      })
+      // Fill in missing months with 0
+      const allMonths = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+      setChartData(allMonths.map(m => monthlyData[m] || { month: m, sales: 0, revenue: 0 }))
+    })
+
+    // 2. Listen to tables (real-time)
+    const unsubTables = onSnapshot(collection(db, "tables"), (snap) => {
+      const tables = snap.docs.map(d => d.data())
+      setTotalTables(tables.length)
+      setOccupiedTables(tables.filter(t => t.status === "occupied").length)
+    })
+
+    // 3. Fetch popular dishes (one-time, or you could listen)
+    const fetchPopular = async () => {
+      const snap = await getDocs(collection(db, "orders"))
+      const orders = snap.docs.map(d => d.data())
+
+      const dishCounts = {}
+      orders.forEach(o => {
+        o.items?.forEach(item => {
+          if (!dishCounts[item.productId]) {
+            dishCounts[item.productId] = {
+              name: item.name,
+              count: 0,
+              price: item.price,
+              image: item.image || ""
+            }
+          }
+          dishCounts[item.productId].count += item.qty
+        })
+      })
+
+      const sorted = Object.values(dishCounts)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
+
+      setPopularDishes(sorted)
+      setLoading(false)
+    }
+
+    fetchPopular()
+
+    return () => {
+      unsubOrders()
+      unsubTables()
+    }
+  }, [])
   return (
     <div className="w-full">
 
@@ -49,8 +124,9 @@ function Dashboard() {
 
           <div className="flex flex-col justify-between">
             <div>
-              <p className="text-sm text-gray-300">Daily Sales</p>
-              <h1 className="text-3xl lg:text-4xl font-bold text-white mt-2">$2K</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold text-white mt-2">
+                ${(dailySales / 1000).toFixed(1)}K
+              </h1>
             </div>
             <p className="text-xs text-gray-300">{currentDate}</p>
           </div>
@@ -81,8 +157,9 @@ function Dashboard() {
 
           <div className="flex flex-col justify-between">
             <div>
-              <p className="text-sm text-gray-300">Monthly Revenue</p>
-              <h1 className="text-3xl lg:text-4xl font-bold text-white mt-2">$55K</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold text-white mt-2">
+                ${(monthlyRevenue / 1000).toFixed(0)}K
+              </h1>
             </div>
             <p className="text-xs text-gray-300">{currentDate}</p>
           </div>
@@ -113,8 +190,9 @@ function Dashboard() {
 
           <div className="flex flex-col justify-between">
             <div>
-              <p className="text-sm text-gray-300">Table Occupancy</p>
-              <h1 className="text-3xl lg:text-4xl font-bold text-white mt-2">25 Tables</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold text-white mt-2">
+                {occupiedTables} Tables
+              </h1>
             </div>
           </div>
 
@@ -158,27 +236,30 @@ function Dashboard() {
 
           <div className="flex flex-col gap-3 overflow-y-auto max-h-[300px] pr-1">
 
-            {[1, 2, 3, 4, 5].map((item) => (
-              <div key={item} className="flex items-center justify-between bg-[#2e2e2e] rounded-xl p-3">
-
-                <div className="flex items-center gap-3">
-                  <img
-                    src="https://via.placeholder.com/80x80"
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
-                  <div>
-                    <h3 className="text-white text-sm font-semibold">Jollof Rice</h3>
-                    <p className="text-gray-300 text-xs">Serving: 01 person</p>
+            {loading ? (
+              <p className="text-gray-400 text-sm">Loading...</p>
+            ) : popularDishes.length === 0 ? (
+              <p className="text-gray-400 text-sm">No orders yet</p>
+            ) : (
+              popularDishes.map((dish, i) => (
+                <div key={i} className="flex items-center justify-between bg-[#2e2e2e] rounded-xl p-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={dish.image || "https://via.placeholder.com/80x80"}
+                      className="w-12 h-12 rounded-lg object-cover"
+                    />
+                    <div>
+                      <h3 className="text-white text-sm font-semibold">{dish.name}</h3>
+                      <p className="text-gray-300 text-xs">Sold: {dish.count} times</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[#F5C6CC] text-xs font-semibold">Popular</span>
+                    <p className="text-white text-sm font-bold">${dish.price?.toFixed(2)}</p>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <span className="text-[#F5C6CC] text-xs font-semibold">In Stock</span>
-                  <p className="text-white text-sm font-bold">$55.00</p>
-                </div>
-
-              </div>
-            ))}
+              ))
+            )}
 
           </div>
         </div>
@@ -198,27 +279,30 @@ function Dashboard() {
 
           <div className="flex flex-col gap-3 overflow-y-auto max-h-[300px] pr-1">
 
-            {[1, 2, 3, 4, 5].map((item) => (
-              <div key={item} className="flex items-center justify-between bg-[#2e2e2e] rounded-xl p-3">
-
-                <div className="flex items-center gap-3">
-                  <img
-                    src="https://via.placeholder.com/80x80"
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
-                  <div>
-                    <h3 className="text-white text-sm font-semibold">Grilled Chicken</h3>
-                    <p className="text-gray-300 text-xs">Serving: 01 person</p>
+            {loading ? (
+              <p className="text-gray-400 text-sm">Loading...</p>
+            ) : popularDishes.length === 0 ? (
+              <p className="text-gray-400 text-sm">No orders yet</p>
+            ) : (
+              popularDishes.map((dish, i) => (
+                <div key={i} className="flex items-center justify-between bg-[#2e2e2e] rounded-xl p-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={dish.image || "https://via.placeholder.com/80x80"}
+                      className="w-12 h-12 rounded-lg object-cover"
+                    />
+                    <div>
+                      <h3 className="text-white text-sm font-semibold">{dish.name}</h3>
+                      <p className="text-gray-300 text-xs">Sold: {dish.count} times</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[#F5C6CC] text-xs font-semibold">Popular</span>
+                    <p className="text-white text-sm font-bold">${dish.price?.toFixed(2)}</p>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <span className="text-[#F5C6CC] text-xs font-semibold">In Stock</span>
-                  <p className="text-white text-sm font-bold">$65.00</p>
-                </div>
-
-              </div>
-            ))}
+              ))
+            )}
 
           </div>
         </div>
@@ -325,7 +409,7 @@ function Dashboard() {
                   borderRadius: "12px",
                   color: "#fff",
                   boxShadow: "none",
-                }}/>
+                }} />
 
               <Line type="monotone" dataKey="sales" stroke="#FFD6E5" strokeWidth={3} dot={false} />
               <Line type="monotone" dataKey="revenue" stroke="#F7F6E7" strokeWidth={2} dot={false} />
