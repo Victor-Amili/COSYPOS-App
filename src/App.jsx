@@ -6,6 +6,9 @@ import Dashboard from "./pages/Dashboard"
 import Orders from "./pages/Orders";
 import OrdersTables from "./pages/OrdersTables";
 import Notificaton from "./pages/Notificaton";
+import ReservationReport from "./pages/ReservationReport"
+import RevenueReport from "./pages/RevenueReport"
+import StaffReport from "./pages/StaffReport"
 import MenuPage from "./pages/MenuPage"
 import InventoryPage from "./pages/InventoryPage"
 import ReservationPage from "./pages/ReservationPage"
@@ -30,6 +33,9 @@ function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders-tables" element={<OrdersTables />} />
             <Route path="/notifications" element={<Notificaton />} />
+            <Route path="/reports" element={<ReservationReport />} />
+            <Route path="/revenue-report" element={<RevenueReport />} />
+            <Route path="/staff-report" element={<StaffReport />} />
 
             <Route path="/staff" element={<StaffManagement />} />
             <Route path="/staff/attendance" element={<Attendance />} />
