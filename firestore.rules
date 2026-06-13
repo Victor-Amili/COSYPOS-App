@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.role == 'admin' || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    function isManager() {
+      return isAuthenticated() && 
+        (request.auth.token.role in ['admin', 'manager'] || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager']);
+    }
+
+    function isStaff() {
+      return isAuthenticated() && 
+        (request.auth.token.role in ['admin', 'manager', 'staff'] || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'staff']);
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasPermission(permission) {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions[permission] == true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isManager());
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions']));
+      allow delete: if isAdmin();
+    }
+
+    // Products collection
+    match /products/{productId} {
+      allow read: if isStaff();
+      allow create: if isManager() || hasPermission('inventory');
+      allow update: if isManager() || hasPermission('inventory');
+      allow delete: if isAdmin();
+    }
+
+    // Categories collection
+    match /categories/{categoryId} {
+      allow read: if isStaff();
+      allow write: if isManager() || hasPermission('inventory');
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isManager();
+    }
+
+    // Tables collection
+    match /tables/{tableId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    // Reservations collection
+    match /reservations/{reservationId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isManager();
+    }
+
+    // Attendance collection
+    match /attendance/{attendanceId} {
+      allow read: if isStaff() && (isManager() || resource.data.userId == request.auth.uid);
+      allow create: if isManager();
+      allow update: if isManager();
+      allow delete: if isAdmin();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == null || resource.data.userId == request.auth.uid);
+      allow create: if isStaff();
+      allow update: if isAuthenticated() && (resource.data.userId == null || resource.data.userId == request.auth.uid);
+      allow delete: if isAuthenticated() && (resource.data.userId == null || resource.data.userId == request.auth.uid);
+    }
+
+    // Settings collection
+    match /settings/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+  }
+}

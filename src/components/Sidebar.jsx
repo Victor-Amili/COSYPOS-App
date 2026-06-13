@@ -6,7 +6,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
     const location = useLocation()
 
     const items = [
-        { name: "Dashboard", icon: FiGrid, path: "/" },
+        { name: "Dashboard", icon: FiGrid, path: "/dashboard" },
         { name: "Menu", icon: FiGrid, path: "/menu" },
         { name: "Staff", icon: FiGrid, path: "/staff" },
         { name: "Inventory", icon: FiGrid, path: "/inventory" },
@@ -73,7 +73,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
             <div className="p-4">
                 <div
                     onClick={() => {
-                        navigate("/login")
+                        navigate("/")
                         setSidebarOpen(false)
                     }}
                     className="group flex flex-col items-center justify-center py-2 px-1 cursor-pointer

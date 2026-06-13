@@ -10,13 +10,15 @@ const FLOOR_TABLES = {
   "2nd Floor": ["D1", "D2", "D3", "E1", "E2", "F1", "F2"],
   "3rd Floor": ["G1", "G2", "H1", "H2", "H3"],
 };
-const HOURS = Array.from({ length: 13 }, (_, i) => `${(i + 9).toString().padStart(2, "0")}:00`);
+const HOURS = Array.from({ length: 15 }, (_, i) => `${(i + 9).toString().padStart(2, "0")}:00`);
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function toYMD(date) {
   return date.toISOString().split("T")[0];
 }
+
+
 
 function getDateLabel(dateStr) {
   const today = toYMD(new Date());
@@ -31,6 +33,8 @@ function DatePicker({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date(value + "T00:00:00"));
   const ref = useRef(null);
+
+
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -127,10 +131,13 @@ export default function ReservationPage() {
   const [reservations, setReservations] = useState([]);
   const [modal, setModal] = useState({ open: false, prefill: {} });
   const [selectedDate, setSelectedDate] = useState(toYMD(new Date()));
+  const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "reservations"), (snap) => {
       setReservations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
     });
     return () => unsub();
   }, []);
@@ -138,15 +145,19 @@ export default function ReservationPage() {
   const tables = FLOOR_TABLES[activeFloor];
 
   const getReservationsForCell = (table, hour) => {
+
+
     return reservations.filter((r) => {
       const rHour = r.reservationTime?.slice(0, 2);
+      const rDate = r.reservationDate || r.reservateDate;
       return (
         r.tableNumber === table &&
         rHour === hour.slice(0, 2) &&
-        r.floor === activeFloor &&
-        r.reservateDate === selectedDate
+        r.floor === activeFloor.replace(" Floor", "") &&
+        rDate === selectedDate
       );
     });
+
   };
 
   const handleCellClick = (table, hour) => {
@@ -170,11 +181,10 @@ export default function ReservationPage() {
             <button
               key={floor}
               onClick={() => setActiveFloor(floor)}
-              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition ${
-                activeFloor === floor
-                  ? "bg-brand text-white"
-                  : "text-white/50 hover:text-white"
-              }`}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition ${activeFloor === floor
+                ? "bg-brand text-white"
+                : "text-white/50 hover:text-white"
+                }`}
             >
               {floor}
             </button>
@@ -226,11 +236,10 @@ export default function ReservationPage() {
                       <div
                         key={res.id}
                         onClick={(e) => { e.stopPropagation(); navigate(`/reservation/${res.id}`); }}
-                        className={`w-full h-full min-h-[60px] rounded-lg p-2 cursor-pointer transition hover:opacity-90 ${
-                          res.status === "Confirmed" ? "bg-brand/30 border border-brand/40" : "bg-white/10 border border-white/20"
-                        }`}
+                        className={`w-full h-full min-h-[60px] rounded-lg p-2 cursor-pointer transition hover:opacity-90 ${res.status?.toLowerCase().trim() === "Confirmed" ? "bg-brand/30 border border-brand/40" : "bg-white/10 border border-white/20"
+                          }`}
                       >
-                        <p className="text-white text-xs font-medium truncate">{res.fullName || `${res.firstName} ${res.lastName}`}</p>
+                        {res.customer ? `${res.customer.firstName} ${res.customer.lastName}` : "Unknown"}
                         <div className="flex items-center gap-1 mt-1">
                           <svg className="w-3 h-3 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20H7m10 0a2 2 0 002-2v-1a5 5 0 00-10 0v1a2 2 0 002 2m10 0V10M7 20V10m0 0a5 5 0 0110 0" />

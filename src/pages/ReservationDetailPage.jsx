@@ -17,6 +17,7 @@ const TABLE_IMAGES = {
 };
 
 const ALL_TABLES = ["Bar", "A1", "A2", "B1", "B2", "B3", "C1", "C2", "D1", "D2", "D3", "E1", "E2", "F1", "F2", "G1", "G2", "H1", "H2", "H3"];
+const FLOORS = ["1st", "2nd", "3rd"];
 
 export default function ReservationDetailPage() {
   const { id } = useParams();
@@ -24,6 +25,7 @@ export default function ReservationDetailPage() {
   const [reservation, setReservation] = useState(null);
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeFloor, setActiveFloor] = useState("1st");
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "reservations", id), (snap) => {
@@ -84,7 +86,7 @@ export default function ReservationDetailPage() {
             {[
               { label: "Table Number", value: reservation.tableNumber },
               { label: "Pax Number", value: reservation.paxNumber },
-              { label: "Reservation Date", value: reservation.reservateDate },
+              { label: "Reservation Date", value: reservation.reservationDate },
               { label: "Reservation Time", value: reservation.reservationTime },
               { label: "Deposit Fee", value: reservation.depositFee ? `${reservation.depositFee} $` : "—" },
               { label: "Status", value: reservation.status },
@@ -105,9 +107,9 @@ export default function ReservationDetailPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
               { label: "Title", value: reservation.title },
-              { label: "Full Name", value: reservation.fullName || `${reservation.firstName} ${reservation.lastName}` },
-              { label: "Phone number", value: reservation.phoneNumber },
-              { label: "Email Address", value: reservation.emailAddress },
+              { label: "Full Name", value: reservation.customer ? `${reservation.customer.firstName} ${reservation.customer.lastName}` : "—" },
+              { label: "Phone Number", value: reservation.customer?.phone },
+              { label: "Email Address", value: reservation.customer?.email },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-white/40 text-xs mb-1">{label}</p>
@@ -124,9 +126,9 @@ export default function ReservationDetailPage() {
         <div className="bg-[#1a1a1a] rounded-2xl p-5 border border-white/5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Customer ID", value: reservation.customerId },
+              { label: "Customer ID", value: reservation.customerId || reservation.reservationId  },
               { label: "Payment Method", value: reservation.paymentMethod },
-              { label: "Name", value: reservation.fullName || `${reservation.firstName} ${reservation.lastName}` },
+              { label: "Name", value: reservation.customer ? `${reservation.customer.firstName} ${reservation.customer.lastName}` : "—" },
               { label: "Floor", value: reservation.floor },
             ].map(({ label, value }) => (
               <div key={label}>
@@ -169,11 +171,10 @@ export default function ReservationDetailPage() {
                   <button
                     key={table}
                     onClick={() => handleChangeTable(table)}
-                    className={`py-3 rounded-xl text-sm font-medium transition border ${
-                      reservation.tableNumber === table
+                    className={`py-3 rounded-xl text-sm font-medium transition border ${reservation.tableNumber === table
                         ? "bg-brand/20 border-brand/50 text-brand"
                         : "bg-[#2a2a2a] border-white/10 text-white hover:border-white/30"
-                    }`}
+                      }`}
                   >
                     {table}
                   </button>

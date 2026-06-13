@@ -1,19 +1,29 @@
 import { useState, useEffect } from "react";
 import { db } from "../../firebase/config";
-import { collection, addDoc, updateDoc, doc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 
-const TABLE_NUMBERS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"];
+const TABLE_NUMBERS = ["Bar", "A1", "A2", "B1", "B2", "B3", "C1", "C2", "D1", "D2", "D3", "E1", "E2", "F1", "F2", "G1", "G2", "H1", "H2", "H3"];
 const STATUS_OPTIONS = ["Confirmed", "Pending", "Cancelled"];
 const TITLE_OPTIONS = ["Mr", "Mrs", "Ms", "Dr"];
 const PAYMENT_METHODS = ["Visa Card", "Mastercard", "Cash", "Bank Transfer"];
 
+
+// Add this BEFORE the component (after TABLE_NUMBERS):
+const getFloorFromTable = (tableNumber) => {
+  const table = tableNumber?.toString().trim();
+  if (!table) return "1st";
+  if (table === "Bar" || /^[A-C]\d*$/.test(table)) return "1st";
+  if (/^[D-F]\d*$/.test(table)) return "2nd";
+  if (/^[G-H]\d*$/.test(table)) return "3rd";
+  return "1st";
+};
 export default function AddReservationModal({ isOpen, onClose, reservation = null, prefill = {}, onSaved }) {
   const isEdit = !!reservation;
 
   const [form, setForm] = useState({
-    tableNumber: prefill.tableNumber || "01",
+    tableNumber: prefill.tableNumber || "Bar",
     paxNumber: "",
-    reservateDate: prefill.date || "",
+    reservationDate: prefill.date || "",
     reservationTime: prefill.time || "",
     depositFee: "",
     status: "Confirmed",
@@ -24,7 +34,6 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
     emailAddress: "",
     customerId: `#${Math.floor(10000000 + Math.random() * 90000000)}`,
     paymentMethod: "Visa Card",
-    floor: prefill.floor || "1st Floor",
   });
 
   const [loading, setLoading] = useState(false);
@@ -35,14 +44,13 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
     } else {
       setForm((prev) => ({
         ...prev,
-        tableNumber: prefill.tableNumber || "01",
-        reservateDate: prefill.date || "",
+        tableNumber: prefill.tableNumber || "Bar",
+        reservationDate: prefill.date || "",
         reservationTime: prefill.time || "",
-        floor: prefill.floor || "1st Floor",
         customerId: `#${Math.floor(10000000 + Math.random() * 90000000)}`,
       }));
     }
-  }, [reservation, isOpen, prefill.tableNumber, prefill.date, prefill.time, prefill.floor]);
+  }, [reservation, isOpen, prefill]);
 
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -50,22 +58,53 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
     if (!form.firstName.trim()) return;
     setLoading(true);
     try {
-      const data = { ...form, fullName: `${form.firstName} ${form.lastName}` };
+      // Build data matching your seed data schema
+      const data = {
+        reservationId: form.customerId,           // #12354564
+        tableNumber: form.tableNumber,
+        tableId: `table_${getFloorFromTable(form.tableNumber)}_${form.tableNumber}`,
+        floor: getFloorFromTable(form.tableNumber), // Floor
+        paxNumber: parseInt(form.paxNumber) || 1,
+        reservationDate: form.reservationDate,       // was "reservateDate"
+        reservationTime: form.reservationTime,
+        checkIn: form.reservationTime,            // same as reservation time
+        checkOut: "",                              // calculate or leave empty
+        depositFee: parseFloat(form.depositFee) || 0,
+        status: form.status.toLowerCase().trim(),          // "confirmed" not "Confirmed"
+        customer: {
+          title: form.title,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phoneNumber,
+          email: form.emailAddress,
+        },
+        customerId: form.customerId,
+        paymentMethod: form.paymentMethod,
+        cardNumber: "**** **** 4545 4545",         // default or add field
+      };
+
       if (isEdit) {
         await updateDoc(doc(db, "reservations", reservation.id), data);
       } else {
-        await addDoc(collection(db, "reservations"), data);
+        await addDoc(collection(db, "reservations"), {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
       }
       onSaved?.();
       onClose();
     } catch (err) {
       console.error("Error saving reservation:", err);
+      alert("Failed to save: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   if (!isOpen) return null;
+
+
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
@@ -92,6 +131,13 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">▾</span>
                 </div>
               </div>
+              {/* Auto-Detected Floor */}
+              <div>
+                <label className="text-white/60 text-xs mb-1.5 block">Floor</label>
+                <div className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white/60 text-sm">
+                  {getFloorFromTable(form.tableNumber)} Floor
+                </div>
+              </div>
 
               {/* Pax Number */}
               <div>
@@ -103,7 +149,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
               {/* Reservate Date */}
               <div>
                 <label className="text-white/60 text-xs mb-1.5 block">Reservate Date</label>
-                <input type="date" name="reservateDate" value={form.reservateDate} onChange={handleChange}
+                <input type="date" name="reservationDate" value={form.reservationDate} onChange={handleChange}
                   className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm" />
               </div>
 

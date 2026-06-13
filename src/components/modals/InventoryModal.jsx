@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db, storage } from "../../firebase/config";
-import { collection, addDoc, updateDoc, doc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const CATEGORIES = ["Pizza", "Burger", "Chicken", "Bakery", "Beverage", "Seafood"];
@@ -14,12 +14,17 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
 
   const [form, setForm] = useState({
     name: "",
-    category: "",
-    quantity: "01",
-    stock: "Instock",
-    status: "Active",
+    categoryName: "",
+    categoryId: "",
+    itemId: "",
+    stock: 0,
+    stockStatus: "in-stock",
+    status: "active",
     price: "",
-    perishable: "yes",
+    costPrice: "",
+    isPerishable: true,
+    description: "",
+    availability: "In Stock",
     image: "",
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -30,17 +35,22 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
     if (item) {
       setForm({
         name: item.name || "",
-        category: item.category || "",
-        quantity: item.quantity || "01",
-        stock: item.stock || "Instock",
-        status: item.status || "Active",
+        categoryName: item.categoryName || "",
+        categoryId: item.categoryId || "",
+        itemId: item.itemId || "",
+        stock: item.stock || 0,
+        stockStatus: item.stockStatus || "in-stock",
+        status: item.status || "active",
         price: item.price || "",
-        perishable: item.perishable || "yes",
+        costPrice: item.costPrice || "",
+        isPerishable: item.isPerishable || true,
+        description: item.description || "",
+        availability: item.availability || "In Stock",
         image: item.image || "",
       });
       setImagePreview(item.image || null);
     } else {
-      setForm({ name: "", category: "", quantity: "01", stock: "Instock", status: "Active", price: "", perishable: "yes", image: "" });
+      setForm({ name: "", categoryName: "", categoryId: "", itemId: "", stock: 0, stockStatus: "in-stock", status: "active", price: "", costPrice: "", isPerishable: true, description: "", availability: "In Stock", image: "" });
       setImagePreview(null);
       setImageFile(null);
     }
@@ -63,23 +73,46 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
     try {
       let imageUrl = form.image;
       if (imageFile) {
-        const storageRef = ref(storage, `inventory/${Date.now()}_${imageFile.name}`);
+        const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
         await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(storageRef);
       }
 
-      const data = { ...form, image: imageUrl };
+      // Build data matching your products schema
+      const data = {
+        name: form.name,
+        description: form.description,
+        itemId: form.itemId || `#${Math.floor(Math.random() * 90000000) + 10000000}`,
+        price: parseFloat(form.price) || 0,
+        costPrice: parseFloat(form.costPrice) || 0,
+        categoryName: form.categoryName,
+        categoryId: form.categoryId || `cat_${form.categoryName?.toLowerCase()}`,
+        image: imageUrl,
+        stock: parseInt(form.stock) || 0,
+        stockStatus: form.stockStatus,
+        status: form.status,
+        isPerishable: form.isPerishable,
+        availability: form.availability,
+      };
 
       if (isEdit) {
-        await updateDoc(doc(db, "inventory", item.id), data);
+        await updateDoc(doc(db, "products", item.id), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
       } else {
-        await addDoc(collection(db, "inventory"), data);
+        await addDoc(collection(db, "products"), {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
       }
 
       onSaved?.();
       onClose();
     } catch (err) {
-      console.error("Error saving inventory item:", err);
+      console.error("Error saving product:", err);
+      alert("Failed to save: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -149,8 +182,8 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
               <label className="text-white text-sm font-medium block mb-2">Category</label>
               <div className="relative">
                 <select
-                  name="category"
-                  value={form.category}
+                  name="categoryName"
+                  value={form.categoryName}
                   onChange={handleChange}
                   className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
                 >
@@ -165,39 +198,17 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
           </div>
 
           {/* Quantity & Stock */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-white text-sm font-medium block mb-2">Quantity</label>
-              <div className="relative">
-                <select
-                  name="quantity"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
-                >
-                  {QUANTITY_OPTIONS.map((q) => (
-                    <option key={q} value={q}>{String(q).padStart(2, "0")}</option>
-                  ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">▾</span>
-              </div>
-            </div>
-            <div>
-              <label className="text-white text-sm font-medium block mb-2">Stock</label>
-              <div className="relative">
-                <select
-                  name="stock"
-                  value={form.stock}
-                  onChange={handleChange}
-                  className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
-                >
-                  {STOCK_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">▾</span>
-              </div>
-            </div>
+          // Change from select dropdown to number input:
+          <div>
+            <label className="text-white text-sm font-medium block mb-2">Stock Quantity</label>
+            <input
+              type="number"
+              name="stock"
+              value={form.stock}
+              onChange={handleChange}
+              placeholder="0"
+              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm"
+            />
           </div>
 
           {/* Status */}
@@ -205,8 +216,8 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
             <label className="text-white text-sm font-medium block mb-2">Status</label>
             <div className="relative">
               <select
-                name="status"
-                value={form.status}
+                name="stockStatus"
+                value={form.stockStatus}
                 onChange={handleChange}
                 className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
               >
@@ -224,14 +235,26 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
             <div className="relative">
               <input
                 type="number"
-                name="price"
-                value={form.price}
+                name="costPrice"
+                value={form.costPrice}
                 onChange={handleChange}
-                placeholder="Enter inventory price"
+                placeholder="Enter Cost price"
                 className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
             </div>
+          </div>
+
+          {/* Description */}
+          <div className="md:col-span-2">
+            <label className="text-white text-sm font-medium block mb-2">Description</label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              placeholder="Enter product description"
+              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm h-24"
+            />
           </div>
 
           {/* Perishable */}
@@ -241,10 +264,10 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="perishable"
+                  name="isPerishable"
                   value="yes"
-                  checked={form.perishable === "yes"}
-                  onChange={handleChange}
+                  checked={form.isPerishable === true}
+                  onChange={() => setForm(prev => ({ ...prev, isPerishable: true }))}
                   className="w-4 h-4 accent-pink-400"
                 />
                 <span className="text-white text-sm">Yes</span>
@@ -252,10 +275,10 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="perishable"
-                  value="no"
-                  checked={form.perishable === "no"}
-                  onChange={handleChange}
+                  name="isPerishable"
+                  value={false}
+                  checked={form.isPerishable === false}
+                  onChange={() => setForm(prev => ({ ...prev, isPerishable: false }))}
                   className="w-4 h-4 accent-pink-400"
                 />
                 <span className="text-white text-sm">No</span>

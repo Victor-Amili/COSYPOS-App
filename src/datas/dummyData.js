@@ -1,0 +1,228 @@
+export const dummyOrders = [
+  {
+    id: "ORD-001",
+    orderNumber: "980",
+    customerName: "Watson Joyce",
+    tableNumber: "01",
+    status: "ready",
+    statusText: "Ready to serve",
+    date: "Wednesday, 28, 2024",
+    time: "4:48 PM",
+    items: [
+      { qty: 1, name: "Scrambled eggs with toast", price: 199 },
+      { qty: 1, name: "Smoked Salmon Bagel", price: 120 },
+      { qty: 2, name: "Belgian Waffles", price: 220 },
+      { qty: 1, name: "Classi Lemonade", price: 110 },
+    ],
+    subtotal: 649,
+    tax: 32.45,
+    total: 681.45,
+  },
+  {
+    id: "ORD-002",
+    orderNumber: "981",
+    customerName: "Watson Joyce",
+    tableNumber: "02",
+    status: "in-process",
+    statusText: "Cooking Now",
+    date: "Wednesday, 28, 2024",
+    time: "4:48 PM",
+    items: [
+      { qty: 1, name: "Scrambled eggs with toast", price: 199 },
+      { qty: 1, name: "Smoked Salmon Bagel", price: 120 },
+      { qty: 2, name: "Belgian Waffles", price: 220 },
+      { qty: 1, name: "Classi Lemonade", price: 110 },
+    ],
+    subtotal: 649,
+    tax: 32.45,
+    total: 681.45,
+  },
+  {
+    id: "ORD-003",
+    orderNumber: "982",
+    customerName: "Watson Joyce",
+    tableNumber: "03",
+    status: "in-process",
+    statusText: "In The Kitchen",
+    date: "Wednesday, 28, 2024",
+    time: "4:48 PM",
+    items: [
+      { qty: 1, name: "Scrambled eggs with toast", price: 199 },
+      { qty: 1, name: "Smoked Salmon Bagel", price: 120 },
+      { qty: 2, name: "Belgian Waffles", price: 220 },
+      { qty: 1, name: "Classi Lemonade", price: 110 },
+    ],
+    subtotal: 649,
+    tax: 32.45,
+    total: 681.45,
+  },
+  {
+    id: "ORD-004",
+    orderNumber: "983",
+    customerName: "Watson Joyce",
+    tableNumber: "04",
+    status: "completed",
+    statusText: "Completed",
+    date: "Wednesday, 28, 2024",
+    time: "4:48 PM",
+    items: [
+      { qty: 1, name: "Scrambled eggs with toast", price: 199 },
+      { qty: 1, name: "Smoked Salmon Bagel", price: 120 },
+      { qty: 2, name: "Belgian Waffles", price: 220 },
+      { qty: 1, name: "Classi Lemonade", price: 110 },
+    ],
+    subtotal: 649,
+    tax: 32.45,
+    total: 681.45,
+  },
+  {
+    id: "ORD-005",
+    orderNumber: "984",
+    customerName: "Watson Joyce",
+    tableNumber: "05",
+    status: "ready",
+    statusText: "Ready to serve",
+    date: "Wednesday, 28, 2024",
+    time: "4:48 PM",
+    items: [
+      { qty: 1, name: "Scrambled eggs with toast", price: 199 },
+      { qty: 1, name: "Smoked Salmon Bagel", price: 120 },
+      { qty: 2, name: "Belgian Waffles", price: 220 },
+      { qty: 1, name: "Classi Lemonade", price: 110 },
+    ],
+    subtotal: 649,
+    tax: 32.45,
+    total: 681.45,
+  },
+  {
+    id: "ORD-006",
+    orderNumber: "985",
+    customerName: "Watson Joyce",
+    tableNumber: "06",
+    status: "in-process",
+    statusText: "Cooking Now",
+    date: "Wednesday, 28, 2024",
+    time: "4:48 PM",
+    items: [
+      { qty: 1, name: "Scrambled eggs with toast", price: 199 },
+      { qty: 1, name: "Smoked Salmon Bagel", price: 120 },
+      { qty: 2, name: "Belgian Waffles", price: 220 },
+      { qty: 1, name: "Classi Lemonade", price: 110 },
+    ],
+    subtotal: 649,
+    tax: 32.45,
+    total: 681.45,
+  },
+];
+
+export const dummyMenuCategories = [
+  { id: 1, name: "Pizza", items: 20, icon: "🍕" },
+  { id: 2, name: "Burger", items: 15, icon: "🍔" },
+  { id: 3, name: "Chicken", items: 10, icon: "🍗" },
+  { id: 4, name: "Bakery", items: 18, icon: "🧁" },
+  { id: 5, name: "Beverage", items: 12, icon: "🥤" },
+  { id: 6, name: "Seafood", items: 16, icon: "🦐" },
+  { id: 7, name: "Burger", items: 15, icon: "🍔" },
+  { id: 8, name: "Bakery", items: 18, icon: "🧁" },
+];
+
+export const dummyMenuItems = [
+  { id: 1, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 2, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 3, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 4, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 5, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 6, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 7, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 8, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 9, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 10, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 11, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+  { id: 12, name: "Roasted Chicken", price: 35.00, image: "🍗", status: "Order → Kitchen" },
+];
+
+export const dummyNotifications = [
+  {
+    id: "notif_001",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: false,
+  },
+  {
+    id: "notif_002",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: true,
+  },
+  {
+    id: "notif_003",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: false,
+  },
+  {
+    id: "notif_004",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: true,
+  },
+  {
+    id: "notif_005",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: false,
+  },
+  {
+    id: "notif_006",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: true,
+  },
+  {
+    id: "notif_007",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: false,
+  },
+  {
+    id: "notif_008",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: true,
+  },
+  {
+    id: "notif_009",
+    title: "Low Inventory Alert",
+    message: "This is to notify you that the following items are running low in stock",
+    date: "07/04/24",
+    read: false,
+  },
+];
+
+export const getStatusBadgeStyle = (status) => {
+  const styles = {
+    ready: "bg-green-500/20 text-green-400 border-green-500/30",
+    "in-process": "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    completed: "bg-blue-400/20 text-blue-300 border-blue-400/30",
+    cancelled: "bg-red-500/20 text-red-400 border-red-500/30",
+  };
+  return styles[status] || "bg-gray-500/20 text-gray-400";
+};
+
+export const getStatusDot = (status) => {
+  const colors = {
+    ready: "bg-green-500",
+    "in-process": "bg-yellow-500",
+    completed: "bg-blue-400",
+    cancelled: "bg-red-500",
+  };
+  return colors[status] || "bg-gray-500";
+};

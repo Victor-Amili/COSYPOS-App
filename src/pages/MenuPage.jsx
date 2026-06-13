@@ -18,13 +18,15 @@ export default function MenuPage() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [categoryModal, setCategoryModal] = useState({ open: false, data: null });
   const [menuItemModal, setMenuItemModal] = useState({ open: false, data: null });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubCat = onSnapshot(collection(db, "categories"), (snap) => {
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-    const unsubItems = onSnapshot(collection(db, "menuItems"), (snap) => {
+    const unsubItems = onSnapshot(collection(db, "products"), (snap) => {
       setMenuItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+       setLoading(false);
     });
     return () => { unsubCat(); unsubItems(); };
   }, []);
@@ -34,15 +36,24 @@ export default function MenuPage() {
     ...categories,
   ];
 
-  const filteredItems = menuItems.filter((item) => {
-    const catMatch = selectedCategory === "All" || item.category === selectedCategory;
-    const tabMatch = item.menuTab === activeTab;
-    return catMatch && tabMatch;
-  });
+const filteredItems = menuItems.filter((item) => {
+  const catMatch = selectedCategory === "All" || item.categoryName === selectedCategory;
+  
+  const itemCategory = categories.find(c => c.name === item.categoryName);
+  const tabMap = {
+    "Normal Menu": "normal",
+    "Special Deals": "special-deals",
+    "New Year Special": "new-year-special",
+    "Deserts and Drinks": "desserts-drinks"
+  };
+  const tabMatch = itemCategory?.menuType === tabMap[activeTab];
+  
+  return catMatch && tabMatch;
+});
 
   const handleDeleteItem = async (id) => {
     if (!window.confirm("Delete this item?")) return;
-    await deleteDoc(doc(db, "menuItems", id));
+    await deleteDoc(doc(db, "products", id));
   };
 
   const handleDeleteCategory = async (id) => {
@@ -155,7 +166,7 @@ export default function MenuPage() {
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-white/30 text-sm">
-                    No items found. Add a menu item to get started.
+                     {loading ? "Loading..." : "No items found. Add a menu item to get started."}
                   </td>
                 </tr>
               ) : (
