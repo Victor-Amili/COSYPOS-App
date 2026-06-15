@@ -3,13 +3,17 @@ import MainLayout from "./components/MainLayout"
 import Dashboard from "./pages/Dashboard"
 import Login from "./pages/Login"
 import ForgottenPassword from "./pages/ForgottenPassword"
+
 function App() {
   return (
     <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgottenPassword />} />
+
+      {/* Protected routes */}
       <Route element={<MainLayout />}>
-
-        <Route path="/" element={<Dashboard />} />
-
+        <Route path="/dashboard" element={<Dashboard />} />
       </Route>
     </Routes>
   )
