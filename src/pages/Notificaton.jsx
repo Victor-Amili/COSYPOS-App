@@ -1,11 +1,27 @@
-// src/pages/Notificaton.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
-import { dummyNotifications } from "../datas/dummyData";
+import { db } from "../firebase/config";
+import { collection, onSnapshot, doc, deleteDoc, writeBatch, query, orderBy } from "firebase/firestore";
 
 function Notificaton() {
-  const [notifications, setNotifications] = useState(dummyNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+
+  // In Notificaton.jsx, you could add filter tabs:
+  const typeFilters = ["all", "order", "reservation", "inventory", "staff"];
+
+  // Fetch notifications from Firebase
+  useEffect(() => {
+    const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setNotifications(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeTab === "unread") return !n.read;
@@ -14,12 +30,33 @@ function Notificaton() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    const unreadNotifications = notifications.filter((n) => !n.read);
+    if (unreadNotifications.length === 0) return;
+
+    const batch = writeBatch(db);
+    unreadNotifications.forEach((n) => {
+      const ref = doc(db, "notifications", n.id);
+      batch.update(ref, { read: true });
+    });
+
+    try {
+      await batch.commit();
+      // onSnapshot will update local state automatically
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+      alert("Failed to mark all as read");
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const deleteNotification = async (id) => {
+    try {
+      await deleteDoc(doc(db, "notifications", id));
+      // onSnapshot will update local state automatically
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      alert("Failed to delete notification");
+    }
   };
 
   return (
@@ -34,21 +71,19 @@ function Notificaton() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
-              activeTab === "all"
-                ? "bg-pink-400 text-white"
-                : "bg-white/5 text-gray-400 hover:bg-white/10"
-            }`}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${activeTab === "all"
+              ? "bg-[#F5C6CC] text-[#7D5B67]"
+              : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
           >
             All
           </button>
           <button
             onClick={() => setActiveTab("unread")}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
-              activeTab === "unread"
-                ? "bg-pink-400 text-white"
-                : "bg-white/5 text-gray-400 hover:bg-white/10"
-            }`}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${activeTab === "unread"
+              ? "bg-[#F5C6CC] text-[#7D5B67]"
+              : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
           >
             Unread
           </button>
@@ -56,7 +91,7 @@ function Notificaton() {
 
         <button
           onClick={markAllAsRead}
-          className="px-3 sm:px-4 py-2 bg-pink-400/20 text-pink-300 rounded-lg text-xs sm:text-sm font-medium hover:bg-pink-400/30 transition-all whitespace-nowrap"
+          className="px-3 sm:px-4 py-2 bg-[#F5C6CC]/20 text-[#7D5B67] rounded-lg text-xs sm:text-sm font-medium hover:bg-[#F5C6CC]/30 transition-all whitespace-nowrap"
         >
           Mark all as read
         </button>
@@ -64,7 +99,11 @@ function Notificaton() {
 
       {/* Notification List */}
       <div className="space-y-2 sm:space-y-3">
-        {filteredNotifications.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12 text-gray-500 text-xs sm:text-sm">
+            Loading notifications...
+          </div>
+        ) : filteredNotifications.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-xs sm:text-sm">
             No notifications
           </div>
@@ -72,15 +111,14 @@ function Notificaton() {
           filteredNotifications.map((notification) => (
             <div
               key={notification.id}
-              className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl transition-all ${
-                notification.read
-                  ? "bg-[#1e1e1e]"
-                  : "bg-[#1e1e1e] border border-white/5"
-              }`}
+              className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl transition-all ${notification.read
+                ? "bg-[#1e1e1e]"
+                : "bg-[#1e1e1e] border border-white/5"
+                }`}
             >
               {/* Icon */}
-              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-pink-400/20 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-[#F5C6CC]/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-[#F5C6CC]" />
               </div>
 
               {/* Content */}
@@ -95,7 +133,13 @@ function Notificaton() {
 
               {/* Date — hidden on very small screens */}
               <span className="hidden sm:block text-xs text-gray-500 flex-shrink-0">
-                {notification.date}
+                {notification.createdAt?.toDate
+                  ? notification.createdAt.toDate().toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                  : notification.date || "—"}
               </span>
 
               {/* Delete button */}

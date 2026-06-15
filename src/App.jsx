@@ -17,6 +17,8 @@ import StaffManagement from "./pages/StaffManagement"
 import Attendance from "./pages/Attendance"
 import StaffProfile from "./pages/StaffProfile"
 import Login from "./pages/Login";
+import ForgottenPassword from "./pages/ForgottenPassword";
+import CustomerPayment from "./pages/CustomerPayment";
 
 function App() {
   return (
@@ -24,6 +26,9 @@ function App() {
       <Routes>
 
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgottenPassword />} />
+
+        <Route path="/pay" element={<CustomerPayment />} />
 
 
         <Route element={<ProtectedRoute />}>
@@ -44,10 +49,14 @@ function App() {
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/reservation" element={<ReservationPage />} />
             <Route path="/reservation/:id" element={<ReservationDetailPage />} />
+            <Route path="/reports" element={<ReservationReport />} />
+            <Route path="/revenue-report" element={<RevenueReport />} />
+            <Route path="/staff-report" element={<StaffReport />} />
+
           </Route>
         </Route>
 
-        {/* Fallback */}
+        
 
 
       </Routes>

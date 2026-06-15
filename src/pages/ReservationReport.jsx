@@ -1,4 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { db } from "../firebase/config"
+import { collection, onSnapshot } from "firebase/firestore"
 import { useNavigate } from "react-router-dom"
 import {
   PieChart,
@@ -10,61 +12,94 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-//   Legend,
+  //   Legend,
 } from "recharts"
 
-const pieData = [
-  { name: "Confirmed", value: 110, color: "#e75480" },
-  { name: "Awaited", value: 40, color: "#c084a0" },
-  { name: "Cancelled", value: 25, color: "#7d3f5a" },
-  { name: "Failed", value: 17, color: "#f9a8c9" },
-]
 
-const lineData = [
-  { month: "JAN", confirmed: 3000, awaited: 1500, cancelled: 800, failed: 400 },
-  { month: "FEB", confirmed: 2500, awaited: 2000, cancelled: 1000, failed: 600 },
-  { month: "MAR", confirmed: 3500, awaited: 1800, cancelled: 700, failed: 300 },
-  { month: "APR", confirmed: 2800, awaited: 2200, cancelled: 1200, failed: 500 },
-  { month: "MAY", confirmed: 4000, awaited: 1600, cancelled: 900, failed: 450 },
-  { month: "JUN", confirmed: 3800, awaited: 2400, cancelled: 1100, failed: 550 },
-  { month: "JUL", confirmed: 4200, awaited: 2000, cancelled: 800, failed: 300 },
-  { month: "AUG", confirmed: 3600, awaited: 2600, cancelled: 1300, failed: 600 },
-  { month: "SEP", confirmed: 3000, awaited: 1900, cancelled: 950, failed: 400 },
-  { month: "OCT", confirmed: 2700, awaited: 1700, cancelled: 850, failed: 350 },
-  { month: "NOV", confirmed: 3100, awaited: 2100, cancelled: 1000, failed: 480 },
-  { month: "DEC", confirmed: 4500, awaited: 2500, cancelled: 1200, failed: 520 },
-]
-
-const tableData = Array(5).fill({
-  id: "#12354564",
-  name: "Watson Joyce",
-  phone: "+1 (123) 123 4654",
-  date: "28. 03. 2024",
-  checkIn: "03 : 18 PM",
-  checkOut: "05 : 00 PM",
-  total: "$250.00",
-})
 
 const tabs = ["Reservation Report", "Revenue Report", "Staff Report"]
-const filterTabs = ["Confirmed", "Awaited", "Cancelled", "Failed"]
+const filterTabs = ["Confirmed", "Pending", "Cancelled"]
 
 const lineColors = {
   confirmed: "#e75480",
-  awaited: "#c084a0",
+  pending: "#c084a0",
   cancelled: "#7d3f5a",
-  failed: "#f9a8c9",
 }
 
 export default function ReservationReport() {
   const [activeTab] = useState("Reservation Report")
-const [activeFilter, setActiveFilter] = useState("Confirmed")
+  const [activeFilter, setActiveFilter] = useState("Confirmed")
   const navigate = useNavigate()
+
+  const [reservations, setReservations] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch reservations from Firebase
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "reservations"), (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      setReservations(data)
+      setLoading(false)
+    })
+    return () => unsub()
+  }, [])
+
+  // Compute pie data from real reservations
+  const pieData = [
+    {
+      name: "Confirmed",
+      value: reservations.filter(r => r.status === "confirmed").length,
+      color: "#e75480"
+    },
+    {
+      name: "Pending",
+      value: reservations.filter(r => r.status === "pending").length,
+      color: "#c084a0"
+    },
+    {
+      name: "Cancelled",
+      value: reservations.filter(r => r.status === "cancelled").length,
+      color: "#7d3f5a"
+    },
+  ]
+
+  // Compute monthly line data
+  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+  const lineData = monthNames.map((month, i) => {
+    const monthReservations = reservations.filter(r => {
+      if (!r.reservationDate) return false
+      const date = new Date(r.reservationDate + "T00:00:00")
+      return date.getMonth() === i
+    })
+
+    return {
+      month,
+      confirmed: monthReservations.filter(r => r.status === "confirmed").length,
+      pending: monthReservations.filter(r => r.status === "pending").length,
+      cancelled: monthReservations.filter(r => r.status === "cancelled").length,
+    }
+  })
+
+  // Compute table data from real reservations
+  const tableData = reservations.slice(0, 5).map(r => ({
+    id: r.reservationId || r.id.slice(-8),
+    name: r.customer ? `${r.customer.firstName} ${r.customer.lastName}` : "Unknown",
+    phone: r.customer?.phone || "N/A",
+    date: r.reservationDate ? new Date(r.reservationDate + "T00:00:00").toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).replace(/\//g, ". ") : "—",
+    checkIn: r.checkIn || r.reservationTime || "—",
+    checkOut: r.checkOut || "—",
+    total: r.depositFee ? `$${r.depositFee.toFixed(2)}` : "—",
+  }))
 
   const tabRoutes = {
     "Reservation Report": "/reports",
     "Revenue Report": "/revenue-report",
     "Staff Report": "/staff-report",
-  }  
+  }
   const [startDate] = useState("01/04/2024")
   const [endDate] = useState("08/04/2024")
 
@@ -75,6 +110,9 @@ const [activeFilter, setActiveFilter] = useState("Confirmed")
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Reports</h1>
       </div>
+      {loading && (
+        <div className="text-center py-12 text-gray-500">Loading report data...</div>
+      )}
 
       {/* Tabs + Date + Generate */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -140,7 +178,7 @@ const [activeFilter, setActiveFilter] = useState("Confirmed")
               {/* Center Label */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-xs text-gray-400">Total</span>
-                <span className="text-2xl font-bold">192</span>
+                <span className="text-2xl font-bold">{reservations.length}</span>
               </div>
             </div>
 
@@ -215,13 +253,8 @@ const [activeFilter, setActiveFilter] = useState("Confirmed")
                 strokeWidth={2}
                 dot={false}
               />
-              <Line
-                type="monotone"
-                dataKey="failed"
-                stroke={lineColors.failed}
-                strokeWidth={2}
-                dot={false}
-              />
+
+
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -235,9 +268,8 @@ const [activeFilter, setActiveFilter] = useState("Confirmed")
               {tableData.map((row, i) => (
                 <tr
                   key={i}
-                  className={`border-b border-[#2a2a2a] hover:bg-[#252525] transition-colors ${
-                    i % 2 === 0 ? "bg-[#1d1d1d]" : "bg-[#212121]"
-                  }`}
+                  className={`border-b border-[#2a2a2a] hover:bg-[#252525] transition-colors ${i % 2 === 0 ? "bg-[#1d1d1d]" : "bg-[#212121]"
+                    }`}
                 >
                   <td className="px-4 py-3">
                     <div className="text-xs text-[#F5C6CC]">Reservation ID</div>
