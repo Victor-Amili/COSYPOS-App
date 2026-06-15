@@ -97,7 +97,7 @@ export default function CategoryModal({ isOpen, onClose, category = null, onSave
           <div className="flex flex-col items-center gap-2">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full h-40 rounded-xl bg-[#2a2a2a] border border-white/10 flex items-center justify-center cursor-pointer hover:border-pink-400/50 transition overflow-hidden"
+              className="w-full h-40 rounded-xl bg-[#2a2a2a] border border-white/10 flex items-center justify-center cursor-pointer hover:border-brand/50 transition overflow-hidden"
             >
               {iconPreview ? (
                 <img src={iconPreview} alt="icon preview" className="w-full h-full object-cover" />
@@ -115,7 +115,7 @@ export default function CategoryModal({ isOpen, onClose, category = null, onSave
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleIconChange} className="hidden" />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="text-white/60 text-sm underline hover:text-pink-400 transition"
+              className="text-white/60 text-sm underline hover:text-brand transition"
             >
               Change Icon
             </button>
@@ -130,7 +130,7 @@ export default function CategoryModal({ isOpen, onClose, category = null, onSave
               value={form.name}
               onChange={handleChange}
               placeholder="Enter Category name"
-              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm"
+              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm"
             />
           </div>
 
@@ -141,7 +141,7 @@ export default function CategoryModal({ isOpen, onClose, category = null, onSave
               name="menu"
               value={form.menu}
               onChange={handleChange}
-              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
+              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none"
             >
               <option value="">Select menu</option>
               {MENU_OPTIONS.map((m) => (
@@ -159,7 +159,7 @@ export default function CategoryModal({ isOpen, onClose, category = null, onSave
               onChange={handleChange}
               placeholder="write your category description here"
               rows={4}
-              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm resize-none"
+              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm resize-none"
             />
           </div>
 
@@ -174,7 +174,7 @@ export default function CategoryModal({ isOpen, onClose, category = null, onSave
             <button
               onClick={handleSave}
               disabled={loading}
-              className="bg-pink-400 hover:bg-pink-500 text-white font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50"
+              className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50"
             >
               {loading ? "Saving..." : "Save"}
             </button>

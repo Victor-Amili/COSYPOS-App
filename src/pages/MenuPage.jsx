@@ -78,7 +78,7 @@ const filteredItems = menuItems.filter((item) => {
           <h2 className="text-lg md:text-xl font-semibold">Categories</h2>
           <button
             onClick={() => setCategoryModal({ open: true, data: null })}
-            className="hidden md:flex bg-brand hover:bg-brand text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm"
+            className="hidden md:flex bg-brand hover:opacity-90 text-gray-800 font-semibold px-5 py-2.5 rounded-xl transition text-sm"
           >
             Add New Category
           </button>
@@ -113,7 +113,7 @@ const filteredItems = menuItems.filter((item) => {
         <div className="mt-4 md:hidden flex justify-center">
           <button
             onClick={() => setCategoryModal({ open: true, data: null })}
-            className="bg-brand hover:bg-brand text-white font-semibold px-6 py-2.5 rounded-xl transition text-sm"
+            className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-6 py-2.5 rounded-xl transition text-sm"
           >
             Add New Category
           </button>
@@ -130,7 +130,7 @@ const filteredItems = menuItems.filter((item) => {
               <button
                 key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-                  activeTab === tab ? "bg-brand text-white" : "text-white/50 hover:text-white"
+                  activeTab === tab ? "bg-brand text-gray-800" : "text-white/50 hover:text-white"
                 }`}
               >
                 {tab}
@@ -139,7 +139,7 @@ const filteredItems = menuItems.filter((item) => {
           </div>
           <button
             onClick={() => setMenuItemModal({ open: true, data: null })}
-            className="hidden sm:flex bg-brand hover:bg-brand text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm whitespace-nowrap"
+            className="hidden sm:flex bg-brand hover:opacity-90 text-gray-800 font-semibold px-5 py-2.5 rounded-xl transition text-sm whitespace-nowrap"
           >
             Add Menu Item
           </button>
@@ -154,7 +154,7 @@ const filteredItems = menuItems.filter((item) => {
                   <input type="checkbox"
                     checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
                     onChange={toggleSelectAll}
-                    className="w-4 h-4 accent-#FAC1D9"
+                    className="w-4 h-4 accent-brand"
                   />
                 </th>
                 {["Product", "Product Name", "Item ID", "Stock", "Category", "Price", "Availability", ""].map((h) => (
@@ -173,7 +173,7 @@ const filteredItems = menuItems.filter((item) => {
                 filteredItems.map((item, idx) => (
                   <tr key={item.id} className={`border-t border-white/5 ${idx % 2 === 0 ? "bg-[#161616]" : "bg-[#1a1a1a]"} hover:bg-white/5 transition`}>
                     <td className="px-4 py-4">
-                      <input type="checkbox" checked={selectedItems.includes(item.id)} onChange={() => toggleSelectItem(item.id)} className="w-4 h-4 accent-#FAC1D9" />
+                      <input type="checkbox" checked={selectedItems.includes(item.id)} onChange={() => toggleSelectItem(item.id)} className="w-4 h-4 accent-brand" />
                     </td>
                     <td className="px-4 py-4">
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#2a2a2a]">
@@ -264,7 +264,7 @@ const filteredItems = menuItems.filter((item) => {
         <div className="mt-6 sm:hidden flex justify-center">
           <button
             onClick={() => setMenuItemModal({ open: true, data: null })}
-            className="bg-brand hover:bg-brand text-white font-semibold px-8 py-3 rounded-xl transition text-sm"
+            className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-8 py-3 rounded-xl transition text-sm"
           >
             Add New Items
           </button>
@@ -312,7 +312,7 @@ function CategoryCard({ cat, isActive, onClick, onEdit, onDelete }) {
           : <span>{cat.icon || CATEGORY_ICONS[cat.name] || "🍽"}</span>
         }
       </div>
-      <p className={`text-sm font-semibold ${isActive ? "text-brand" : "text-white"}`}>{cat.name}</p>
+      <p className={`text-sm font-semibold ${isActive ? "text-pink-300" : "text-white"}`}>{cat.name}</p>
       <p className="text-white/40 text-xs mt-0.5">{cat.itemCount ?? 0} items</p>
     </div>
   );

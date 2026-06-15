@@ -108,7 +108,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
           <div className="flex flex-col items-center gap-2">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full h-40 rounded-xl bg-[#2a2a2a] border border-white/10 flex items-center justify-center cursor-pointer hover:border-pink-400/50 transition overflow-hidden"
+              className="w-full h-40 rounded-xl bg-[#2a2a2a] border border-white/10 flex items-center justify-center cursor-pointer hover:border-brand/50 transition overflow-hidden"
             >
               {imagePreview ? (
                 <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
@@ -126,7 +126,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="text-white/60 text-sm underline hover:text-pink-400 transition"
+              className="text-white/60 text-sm underline hover:text-brand transition"
             >
               Change Image
             </button>
@@ -142,7 +142,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
                 value={form.name}
                 onChange={handleChange}
                 placeholder="Enter product name"
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm"
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm"
               />
             </div>
             <div>
@@ -151,7 +151,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
                 name="category"
                 value={form.category}
                 onChange={handleChange}
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none"
               >
                 <option value="">Select</option>
                 {CATEGORIES.map((c) => (
@@ -170,7 +170,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
               onChange={handleChange}
               placeholder="Enter product description"
               rows={3}
-              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm resize-none"
+              className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm resize-none"
             />
           </div>
 
@@ -182,7 +182,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
                 name="menuTab"
                 value={form.menuTab}
                 onChange={handleChange}
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none"
               >
                 <option value="">Select</option>
                 {MENU_TABS.map((t) => (
@@ -198,7 +198,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
                 value={form.stock}
                 onChange={handleChange}
                 placeholder="0"
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm"
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm"
               />
             </div>
           </div>
@@ -213,7 +213,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
                 value={form.price}
                 onChange={handleChange}
                 placeholder="0.00"
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm"
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm"
               />
             </div>
             <div>
@@ -222,7 +222,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
                 name="availability"
                 value={form.availability}
                 onChange={handleChange}
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-400/60 transition text-sm appearance-none"
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none"
               >
                 {AVAILABILITY.map((a) => (
                   <option key={a} value={a}>{a}</option>
@@ -242,7 +242,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
             <button
               onClick={handleSave}
               disabled={loading}
-              className="bg-pink-400 hover:bg-pink-500 text-white font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50"
+              className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50"
             >
               {loading ? "Saving..." : "Save"}
             </button>

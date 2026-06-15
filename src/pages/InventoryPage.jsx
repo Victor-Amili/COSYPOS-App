@@ -2,16 +2,12 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
 import { collection, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import InventoryModal from "../components/modals/InventoryModal";
+import CustomSelect from "../components/CustomSelect";
 
-const CATEGORIES = ["All", "Pizza", "Burger", "Chicken", "Bakery", "Beverage", "Seafood"];
-const STOCK_OPTIONS = [
-  { label: "All", value: "All" },
-  { label: "In Stock", value: "in-stock" },
-  { label: "Low Stock", value: "low-stock" },
-  { label: "Out of Stock", value: "out-of-stock" }
-];
-const VALUE_OPTIONS = ["Litre", "Kg", "Gram", "Piece"];
-const STATUS_FILTERS = ["All", "active", "inactive", "draft"];
+const CATEGORIES = ["All", "Pizza", "Burger", "Chicken", "Bakery", "Beverage", "Seafood"].map((c) => ({ value: c, label: c }));
+const STOCK_OPTIONS = ["All", "Instock", "Out of Stock", "Low Stock"].map((s) => ({ value: s, label: s }));
+const VALUE_OPTIONS = ["Litre", "Kg", "Gram", "Piece"].map((v) => ({ value: v, label: v }));
+const STATUS_FILTERS = ["All", "Active", "Inactive", "Draft"];
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -25,31 +21,17 @@ export default function InventoryPage() {
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState(["All"]);
-
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "categories"), (snap) => {
-      const cats = snap.docs.map((d) => d.data().name);
-      setCategories(["All", ...cats]);
-    });
-    return () => unsub();
-  }, []);
-
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "products"), (snap) => {
+    const unsub = onSnapshot(collection(db, "inventory"), (snap) => {
       setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);  // ← add this
     });
     return () => unsub();
   }, []);
-
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this inventory item?")) return;
-    await deleteDoc(doc(db, "products", id));
+    await deleteDoc(doc(db, "inventory", id));
   };
 
   const handleResetFilters = () => {
@@ -63,20 +45,20 @@ export default function InventoryPage() {
   };
 
   const filteredItems = items.filter((item) => {
-    if (statusFilter !== "All" && item.status?.toLowerCase() !== statusFilter.toLowerCase()) return false;
-    if (categoryFilter !== "All" && item.categoryName !== categoryFilter) return false;
-    if (stockFilter !== "All" && item.stockStatus !== stockFilter) return false;
+    if (statusFilter !== "All" && item.status !== statusFilter) return false;
+    if (categoryFilter !== "All" && item.category !== categoryFilter) return false;
+    if (stockFilter !== "All" && item.stock !== stockFilter) return false;
     if (priceMin && parseFloat(item.price) < parseFloat(priceMin)) return false;
     if (priceMax && parseFloat(item.price) > parseFloat(priceMax)) return false;
     return true;
   });
-  
+
   const statusCounts = {
-  All: items.length,
-  active: items.filter((i) => i.status === "active").length,
-  inactive: items.filter((i) => i.status === "inactive").length,
-  draft: items.filter((i) => i.status === "draft").length,
-};
+    All: items.length,
+    Active: items.filter((i) => i.status === "Active").length,
+    Inactive: items.filter((i) => i.status === "Inactive").length,
+    Draft: items.filter((i) => i.status === "Draft").length,
+  };
 
   return (
     <div className="text-white">
@@ -88,7 +70,7 @@ export default function InventoryPage() {
           <button onClick={() => setShowFilters(!showFilters)} className="bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-xl text-sm transition">
             Filters
           </button>
-          <button onClick={() => setInventoryModal({ open: true, data: null })} className="bg-brand hover:bg-brand text-white font-semibold px-4 py-2 rounded-xl transition text-sm">
+          <button onClick={() => setInventoryModal({ open: true, data: null })} className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-4 py-2 rounded-xl transition text-sm">
             + Add
           </button>
         </div>
@@ -106,10 +88,11 @@ export default function InventoryPage() {
               <div className="grid grid-cols-2 gap-2">
                 {STATUS_FILTERS.map((s) => (
                   <button key={s} onClick={() => setStatusFilter(s)}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition border ${statusFilter === s ? "border-brand/50 bg-brand/10 text-white" : "border-white/10 bg-[#2a2a2a] text-white/60 hover:border-white/20"
-                      }`}>
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition border ${
+                      statusFilter === s ? "border-pink-400/50 bg-pink-400/10 text-white" : "border-white/10 bg-[#2a2a2a] text-white/60 hover:border-white/20"
+                    }`}>
                     <span>{s}</span>
-                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${statusFilter === s ? "bg-brand text-white" : "bg-white/10 text-white/50"}`}>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${statusFilter === s ? "bg-brand text-gray-800" : "bg-white/10 text-white/50"}`}>
                       {statusCounts[s]}
                     </span>
                   </button>
@@ -120,44 +103,26 @@ export default function InventoryPage() {
             {/* Category */}
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Category</h3>
-              <div className="relative">
-                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none">
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">▾</span>
-              </div>
+              <CustomSelect value={categoryFilter} onChange={setCategoryFilter} options={CATEGORIES} />
             </div>
 
             {/* Stock */}
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Stock</h3>
-              <div className="relative">
-                <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}
-                  className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none">
-                  {STOCK_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">▾</span>
-              </div>
+              <CustomSelect value={stockFilter} onChange={setStockFilter} options={STOCK_OPTIONS} />
             </div>
 
             {/* Value */}
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Value</h3>
-              <div className="relative">
-                <select value={valueFilter} onChange={(e) => setValueFilter(e.target.value)}
-                  className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand/60 transition text-sm appearance-none">
-                  {VALUE_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">▾</span>
-              </div>
+              <CustomSelect value={valueFilter} onChange={setValueFilter} options={VALUE_OPTIONS} />
             </div>
 
             {/* Quantity */}
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Piece / Item / Quantity</h3>
               <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="50"
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm" />
             </div>
 
             {/* Price */}
@@ -166,18 +131,18 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 <div className="relative">
                   <input type="number" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} placeholder="Min"
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
+                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm" />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
                 </div>
                 <div className="relative">
                   <input type="number" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} placeholder="Max"
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
+                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm" />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
                 </div>
               </div>
             </div>
 
-            <button onClick={handleResetFilters} className="w-full bg-brand/20 hover:bg-brand/30 text-brand font-semibold py-3 rounded-xl transition text-sm">
+            <button onClick={handleResetFilters} className="w-full bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 font-semibold py-3 rounded-xl transition text-sm">
               Reset Filters
             </button>
           </div>
@@ -188,17 +153,13 @@ export default function InventoryPage() {
           {/* Desktop header */}
           <div className="hidden md:flex items-center justify-between mb-5">
             <p><span className="text-2xl font-bold">{filteredItems.length}</span><span className="text-white/50 text-sm ml-2">total products</span></p>
-            <button onClick={() => setInventoryModal({ open: true, data: null })} className="bg-brand hover:bg-brand text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm">
+            <button onClick={() => setInventoryModal({ open: true, data: null })} className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-5 py-2.5 rounded-xl transition text-sm">
               Add New Inventory
             </button>
           </div>
 
           <div className="space-y-3">
-            {loading ? (
-              <div className="bg-[#1a1a1a] rounded-2xl p-12 text-center text-white/30 text-sm border border-white/5">
-                Loading inventory...
-              </div>
-            ) : filteredItems.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div className="bg-[#1a1a1a] rounded-2xl p-12 text-center text-white/30 text-sm border border-white/5">
                 No inventory items found.
               </div>
@@ -214,18 +175,18 @@ export default function InventoryPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium text-sm">{item.name}</p>
                     <p className="text-white/40 text-xs mt-0.5">
-                      Stocked Product : <span className="text-brand font-semibold">{item.stock} In Stock</span>
+                      Stocked Product : <span className="text-pink-400 font-semibold">{item.quantity} In Stock</span>
                     </p>
                   </div>
                   <div className="hidden sm:flex items-center gap-6 flex-shrink-0">
                     <div className="text-center">
                       <p className="text-white/40 text-xs">Status</p>
-                      <p className="text-white text-sm font-medium mt-0.5">{item.status || "—"}</p>
+                      <p className="text-white text-sm font-medium mt-0.5">{item.status}</p>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="text-center">
                       <p className="text-white/40 text-xs">Category</p>
-                      <p className="text-white text-sm font-medium mt-0.5">{item.categoryName || "—"}</p>
+                      <p className="text-white text-sm font-medium mt-0.5">{item.category || "—"}</p>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="text-center">
@@ -256,7 +217,7 @@ export default function InventoryPage() {
         isOpen={inventoryModal.open}
         onClose={() => setInventoryModal({ open: false, data: null })}
         item={inventoryModal.data}
-        onSaved={() => setInventoryModal({ open: false, data: null })}
+        onSaved={() => {}}
       />
     </div>
   );
