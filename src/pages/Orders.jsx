@@ -31,25 +31,40 @@ function Orders() {
         return () => unsub();
     }, []);
     // Auto-open payment modal from QR code scan
+    // In Orders.jsx — replace your existing QR useEffect with this:
+
     useEffect(() => {
         const tableFromQR = searchParams.get("table");
+        const orderFromQR = searchParams.get("order");
         const shouldPay = searchParams.get("pay") === "true";
 
-        console.log("QR Check:", { tableFromQR, shouldPay, ordersCount: orders.length });
+        console.log("📱 QR Scan detected:", { tableFromQR, orderFromQR, shouldPay });
 
-        if (tableFromQR && shouldPay && !showPaymentModal) {
-            const order = orders.find(
-                (o) =>
-                    o.tableNumber === tableFromQR &&
-                    (o.status === "in-process" || o.status === "ready")
-            );
+        if (shouldPay && !showPaymentModal) {
+            // Find the order — either by order ID or by table number
+            let order = null;
 
-            console.log("Found order:", order);
+            if (orderFromQR) {
+                // Direct order link
+                order = orders.find((o) => o.id === orderFromQR);
+            } else if (tableFromQR) {
+                // Table link — find the most recent active order for this table
+                order = orders.find(
+                    (o) =>
+                        o.tableNumber === tableFromQR &&
+                        (o.status === "in-process" || o.status === "ready")
+                );
+            }
 
             if (order) {
+                console.log("✅ Found order for payment:", order.orderNumber);
                 setSelectedOrder(order);
                 setShowPaymentModal(true);
+                // Clear URL so refresh doesn't reopen
                 setSearchParams({}, { replace: true });
+            } else {
+                console.log("❌ No order found for this table/order");
+                // Optional: Show a message that order is not ready
             }
         }
     }, [searchParams, orders, showPaymentModal, setSearchParams]);
@@ -106,6 +121,14 @@ function Orders() {
             console.error("Add error:", error);
             alert("Failed to create order");
         }
+        // Create notification for new order
+        await addDoc(collection(db, "notifications"), {
+            title: "New Order",
+            message: `Order #${newOrder.orderNumber} for Table ${newOrder.tableNumber} — $${newOrder.total.toFixed(2)}`,
+            type: "order",
+            read: false,
+            createdAt: serverTimestamp(),
+        });
     };
     const handleEditOrder = async (updatedOrder) => {
         try {
@@ -133,7 +156,7 @@ function Orders() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${activeTab === tab.id
-                                ? "bg-pink-400 text-white"
+                                ? "bg-[#F5C6CC] text-[#7D5B67]"
                                 : "bg-white/5 text-gray-400 hover:bg-white/10"
                                 }`}
                         >
@@ -154,7 +177,7 @@ function Orders() {
                     </button>
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-pink-400 text-white rounded-xl text-sm font-medium hover:bg-pink-500 transition-all whitespace-nowrap"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-[#F5C6CC] text-[#7D5B67] rounded-xl text-sm font-medium hover:bg-[#F5C6CC]/80 transition-all whitespace-nowrap"
                     >
                         <Plus className="w-4 h-4" />
                         <span className="hidden sm:inline">Add New Order</span>
@@ -167,7 +190,7 @@ function Orders() {
                             placeholder="Search a name, order etc"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-[280px] pl-10 pr-4 py-2.5 bg-[#1e1e1e] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                            className="w-[280px] pl-10 pr-4 py-2.5 bg-[#1e1e1e] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                         />
                     </div>
                 </div>
@@ -182,7 +205,7 @@ function Orders() {
                         placeholder="Search a name, order etc"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-[#1e1e1e] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#1e1e1e] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                     />
                 </div>
             </div>
@@ -209,8 +232,8 @@ function Orders() {
                             {/* Card Header */}
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-pink-400/20 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-sm font-bold text-pink-400">
+                                    <div className="w-10 h-10 rounded-xl bg-[#F5C6CC]/20 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-sm font-bold text-[#F5C6CC]">
                                             {order.tableNumber}
                                         </span>
                                     </div>
@@ -291,7 +314,7 @@ function Orders() {
                                 </button>
                                 <button
                                     onClick={() => handlePayBill(order)}
-                                    className="flex-[2] flex items-center justify-center gap-1.5 py-2.5 bg-pink-400/20 text-pink-300 rounded-xl text-sm font-medium hover:bg-pink-400/30 transition-all"
+                                    className="flex-[2] flex items-center justify-center gap-1.5 py-2.5 bg-[#F5C6CC]/20 text-[#F5C6CC] rounded-xl text-sm font-medium hover:bg-[#F5C6CC]/30 transition-all"
                                 >
                                     <CreditCard className="w-4 h-4" />
                                     Pay Bill
@@ -436,7 +459,7 @@ function AddOrderModal({ onClose, onAdd }) {
                             value={customerName}
                             onChange={(e) => setCustomerName(e.target.value)}
                             placeholder="Enter customer name"
-                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                         />
                     </div>
                     <div>
@@ -448,7 +471,7 @@ function AddOrderModal({ onClose, onAdd }) {
                             value={tableNumber}
                             onChange={(e) => setTableNumber(e.target.value)}
                             placeholder="e.g. 07"
-                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                         />
                     </div>
 
@@ -458,7 +481,7 @@ function AddOrderModal({ onClose, onAdd }) {
                             <button
                                 type="button"
                                 onClick={addItemField}
-                                className="text-xs text-pink-400 hover:text-pink-300 flex items-center gap-1"
+                                className="text-xs text-[#F5C6CC] hover:text-[#7D5B67] flex items-center gap-1"
                             >
                                 <Plus className="w-3 h-3" /> Add Item
                             </button>
@@ -476,7 +499,7 @@ function AddOrderModal({ onClose, onAdd }) {
                                             value={item.name}
                                             onChange={(e) => updateItem(index, "name", e.target.value)}
                                             placeholder="Item name"
-                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                                         />
                                     </div>
                                     <div>
@@ -487,7 +510,7 @@ function AddOrderModal({ onClose, onAdd }) {
                                                 updateItem(index, "price", e.target.value)
                                             }
                                             placeholder="Price"
-                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                                         />
                                     </div>
                                     <div>
@@ -496,7 +519,7 @@ function AddOrderModal({ onClose, onAdd }) {
                                             value={item.qty}
                                             onChange={(e) => updateItem(index, "qty", e.target.value)}
                                             placeholder="Qty"
-                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                                         />
                                     </div>
                                     <button
@@ -514,7 +537,7 @@ function AddOrderModal({ onClose, onAdd }) {
 
                     <button
                         type="submit"
-                        className="w-full py-3 bg-pink-400 text-white rounded-xl text-sm font-medium hover:bg-pink-500 transition-all mt-2"
+                        className="w-full py-3 bg-[#F5C6CC] text-[#7D5B67] rounded-xl text-sm font-medium hover:bg-[#F5C6CC]/80 transition-all mt-2"
                     >
                         Create Order
                     </button>
@@ -608,7 +631,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                             type="text"
                             value={customerName}
                             onChange={(e) => setCustomerName(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                         />
                     </div>
                     <div>
@@ -619,7 +642,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                             type="text"
                             value={tableNumber}
                             onChange={(e) => setTableNumber(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                         />
                     </div>
                     <div>
@@ -627,7 +650,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                         <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-pink-400/50"
+                            className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[#F5C6CC]/50"
                         >
                             <option value="in-process">In Process</option>
                             <option value="ready">Ready</option>
@@ -642,7 +665,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                             <button
                                 type="button"
                                 onClick={addItemField}
-                                className="text-xs text-pink-400 hover:text-pink-300 flex items-center gap-1"
+                                className="text-xs text-[#F5C6CC] hover:text-[#7D5B67] flex items-center gap-1"
                             >
                                 <Plus className="w-3 h-3" /> Add Item
                             </button>
@@ -660,7 +683,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                                             value={item.name}
                                             onChange={(e) => updateItem(index, "name", e.target.value)}
                                             placeholder="Item name"
-                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                                         />
                                     </div>
                                     <div>
@@ -671,7 +694,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                                                 updateItem(index, "price", e.target.value)
                                             }
                                             placeholder="Price"
-                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                                         />
                                     </div>
                                     <div>
@@ -680,7 +703,7 @@ function EditOrderModal({ order, onClose, onSave }) {
                                             value={item.qty}
                                             onChange={(e) => updateItem(index, "qty", e.target.value)}
                                             placeholder="Qty"
-                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-400/50"
+                                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F5C6CC]/50"
                                         />
                                     </div>
                                     <button
@@ -698,7 +721,7 @@ function EditOrderModal({ order, onClose, onSave }) {
 
                     <button
                         type="submit"
-                        className="w-full py-3 bg-pink-400 text-white rounded-xl text-sm font-medium hover:bg-pink-500 transition-all mt-2"
+                        className="w-full py-3 bg-[#F5C6CC] text-[#7D5B67] rounded-xl text-sm font-medium hover:bg-[#F5C6CC]/80 transition-all mt-2"
                     >
                         Save Changes
                     </button>
@@ -937,8 +960,8 @@ function PaymentModal({ order, onClose }) {
                                     key={idx}
                                     className="flex items-center gap-3 bg-[#2a2a2a] rounded-xl p-3"
                                 >
-                                    <div className="w-8 h-8 rounded-lg bg-pink-400/20 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-[10px] font-bold text-pink-400">
+                                    <div className="w-8 h-8 rounded-lg bg-[#F5C6CC]/20 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-[10px] font-bold text-[#F5C6CC]">
                                             {String(idx + 1).padStart(2, "0")}
                                         </span>
                                     </div>
@@ -982,7 +1005,7 @@ function PaymentModal({ order, onClose }) {
                                         key={method.id}
                                         onClick={() => setPaymentMethod(method.id)}
                                         className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${paymentMethod === method.id
-                                            ? "bg-pink-400/20 border-pink-400/50 text-pink-300"
+                                            ? "bg-[#F5C6CC]/20 border-[#F5C6CC]/50 text-[#7D5B67]"
                                             : "bg-[#2a2a2a] border-white/5 text-gray-400 hover:border-white/10"
                                             }`}
                                     >
@@ -996,7 +1019,7 @@ function PaymentModal({ order, onClose }) {
                         {/* Pay Button */}
                         <button
                             onClick={handlePay}
-                            className="w-full py-3 bg-pink-400 text-white rounded-xl text-sm font-medium hover:bg-pink-500 transition-all active:scale-95"
+                            className="w-full py-3 bg-[#F5C6CC] text-[#7D5B67] rounded-xl text-sm font-medium hover:bg-[#F5C6CC]/80 transition-all active:scale-95"
                         >
                             Pay ${total.toFixed(2)}
                         </button>
@@ -1014,7 +1037,7 @@ function PaymentModal({ order, onClose }) {
                             </div>
                             <button
                                 onClick={() => setShowKeypad(!showKeypad)}
-                                className="px-3 py-1.5 bg-pink-400/20 text-pink-300 rounded-lg text-xs font-medium"
+                                className="px-3 py-1.5 bg-[#F5C6CC]/20 text-[#7D5B67] rounded-lg text-xs font-medium"
                             >
                                 {showKeypad ? "Hide" : "Edit"}
                             </button>
@@ -1060,7 +1083,7 @@ function PaymentModal({ order, onClose }) {
                                         <Printer className="w-3 h-3" />
                                         Print
                                     </button>
-                                    <button className="flex-1 py-2 bg-pink-400 text-white rounded-xl text-xs font-medium hover:bg-pink-500 transition-all">
+                                    <button className="flex-1 py-2 bg-[#F5C6CC] text-[#7D5B67] rounded-xl text-xs font-medium hover:bg-[#F5C6CC]/80 transition-all">
                                         Apply
                                     </button>
                                 </div>
@@ -1112,7 +1135,7 @@ function PaymentModal({ order, onClose }) {
                                     <Printer className="w-4 h-4" />
                                     Print
                                 </button>
-                                <button className="flex-1 py-3 bg-pink-400 text-white rounded-xl text-xs font-medium hover:bg-pink-500 transition-all">
+                                <button className="flex-1 py-3 bg-[#F5C6CC] text-[#7D5B67] rounded-xl text-xs font-medium hover:bg-[#F5C6CC]/80 transition-all">
                                     Apply
                                 </button>
                             </div>

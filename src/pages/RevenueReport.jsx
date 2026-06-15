@@ -1,5 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
+import { db } from "../firebase/config"
+import { collection, onSnapshot } from "firebase/firestore"
 import {
   PieChart,
   Pie,
@@ -14,41 +16,8 @@ import {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const pieData = [
-  { name: "Confirmed", value: 900, color: "#e75480" },
-  { name: "Awaited",   value: 300, color: "#c084a0" },
-  { name: "Cancelled", value: 200, color: "#7d3f5a" },
-  { name: "Failed",    value: 156, color: "#f9a8c9" },
-]
-
-const lineData = [
-  { month: "JAN", confirmed: 3000, awaited: 1500, cancelled: 800,  failed: 400 },
-  { month: "FEB", confirmed: 2500, awaited: 2000, cancelled: 1000, failed: 600 },
-  { month: "MAR", confirmed: 3500, awaited: 1800, cancelled: 700,  failed: 300 },
-  { month: "APR", confirmed: 2800, awaited: 2200, cancelled: 1200, failed: 500 },
-  { month: "MAY", confirmed: 4000, awaited: 1600, cancelled: 900,  failed: 450 },
-  { month: "JUN", confirmed: 3800, awaited: 2400, cancelled: 1100, failed: 550 },
-  { month: "JUL", confirmed: 4200, awaited: 2000, cancelled: 800,  failed: 300 },
-  { month: "AUG", confirmed: 3600, awaited: 2600, cancelled: 1300, failed: 600 },
-  { month: "SEP", confirmed: 3000, awaited: 1900, cancelled: 950,  failed: 400 },
-  { month: "OCT", confirmed: 2700, awaited: 1700, cancelled: 850,  failed: 350 },
-  { month: "NOV", confirmed: 3100, awaited: 2100, cancelled: 1000, failed: 480 },
-  { month: "DEC", confirmed: 4500, awaited: 2500, cancelled: 1200, failed: 520 },
-]
-
-const tableData = Array(5).fill({
-  sNo: "01",
-  food: "Chicken Permeson",
-  date: "28. 03. 2024",
-  sellPrice: "$55.00",
-  profit: "$7,985.00",
-  margin: "15.00%",
-  total: "$8000.00",
-})
-
 const tabs = ["Reservation Report", "Revenue Report", "Staff Report"]
-const filterTabs = ["Confirmed", "Awaited", "Cancelled", "Failed"]
-
+const filterTabs = ["Completed", "In Process", "Pending", "Cancelled"]
 const lineColors = {
   confirmed: "#e75480",
   awaited:   "#c084a0",
@@ -62,6 +31,108 @@ export default function RevenueReport() {
   const [activeTab]       = useState("Revenue Report")
   const [activeFilter, setActiveFilter] = useState("Confirmed")
   const navigate = useNavigate()
+
+  const [orders, setOrders] = useState([])
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch orders and products
+  useEffect(() => {
+    const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
+      setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    })
+    const unsubProducts = onSnapshot(collection(db, "products"), (snap) => {
+      setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setLoading(false)
+    })
+    return () => {
+      unsubOrders()
+      unsubProducts()
+    }
+  }, [])
+
+  // Compute pie data: revenue by status
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0)
+  const pieData = [
+    { 
+      name: "Completed", 
+      value: orders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0), 
+      color: "#e75480" 
+    },
+    { 
+      name: "In Process", 
+      value: orders.filter(o => o.status === "in-process").reduce((sum, o) => sum + (o.total || 0), 0), 
+      color: "#c084a0" 
+    },
+    { 
+      name: "Pending", 
+      value: orders.filter(o => o.status === "pending").reduce((sum, o) => sum + (o.total || 0), 0), 
+      color: "#7d3f5a" 
+    },
+    { 
+      name: "Cancelled", 
+      value: orders.filter(o => o.status === "cancelled").reduce((sum, o) => sum + (o.total || 0), 0), 
+      color: "#f9a8c9" 
+    },
+  ]
+
+  // Compute monthly line data
+  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+  const lineData = monthNames.map((month, i) => {
+    const monthOrders = orders.filter(o => {
+      if (!o.date) return false
+      const date = new Date(o.date + "T00:00:00")
+      return date.getMonth() === i
+    })
+    
+    return {
+      month,
+      confirmed: monthOrders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0),
+      awaited: monthOrders.filter(o => o.status === "in-process").reduce((sum, o) => sum + (o.total || 0), 0),
+      cancelled: monthOrders.filter(o => o.status === "cancelled").reduce((sum, o) => sum + (o.total || 0), 0),
+      failed: 0,
+    }
+  })
+
+  // Compute table data: top selling products
+  // Count product sales from orders
+  const productSales = {}
+  orders.forEach(o => {
+    (o.items || []).forEach(item => {
+      const name = item.name || "Unknown"
+      if (!productSales[name]) {
+        productSales[name] = { name, qty: 0, revenue: 0 }
+      }
+      productSales[name].qty += item.qty || 1
+      productSales[name].revenue += (item.price || 0) * (item.qty || 1)
+    })
+  })
+
+  const topProducts = Object.values(productSales)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
+
+  const tableData = topProducts.map((p, i) => {
+    const product = products.find(prod => prod.name === p.name)
+    const costPrice = product?.costPrice || 0
+    const sellPrice = product?.price || 0
+    const profit = p.revenue - (costPrice * p.qty)
+    const margin = sellPrice > 0 ? ((profit / (sellPrice * p.qty)) * 100).toFixed(2) : "0.00"
+    
+    return {
+      sNo: String(i + 1).padStart(2, "0"),
+      food: p.name,
+      date: new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).replace(/\//g, ". "),
+      sellPrice: `$${sellPrice.toFixed(2)}`,
+      profit: `$${profit.toFixed(2)}`,
+      margin: `${margin}%`,
+      total: `$${p.revenue.toFixed(2)}`,
+    }
+  })
 
   const tabRoutes = {
     "Reservation Report": "/reports",
@@ -131,7 +202,7 @@ export default function RevenueReport() {
               </PieChart>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-xs text-gray-400">Total</span>
-                <span className="text-2xl font-bold">1556$</span>
+                <span className="text-2xl font-bold">${totalRevenue.toFixed(0)}</span>
               </div>
             </div>
             <div className="flex flex-col gap-2">

@@ -1,5 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
+import { db } from "../firebase/config"
+import { collection, onSnapshot, query, where } from "firebase/firestore"
 import {
   PieChart,
   Pie,
@@ -12,41 +14,10 @@ import {
   ResponsiveContainer,
 } from "recharts"
 
-const pieData = [
-  { name: "Confirmed", value: 25, color: "#e75480" },
-  { name: "Awaited",   value: 12, color: "#c084a0" },
-  { name: "Cancelled", value: 8,  color: "#7d3f5a" },
-  { name: "Failed",    value: 5,  color: "#f9a8c9" },
-]
 
-const lineData = [
-  { month: "JAN", confirmed: 3000, awaited: 1500, cancelled: 800,  failed: 400 },
-  { month: "FEB", confirmed: 2500, awaited: 2000, cancelled: 1000, failed: 600 },
-  { month: "MAR", confirmed: 3500, awaited: 1800, cancelled: 700,  failed: 300 },
-  { month: "APR", confirmed: 2800, awaited: 2200, cancelled: 1200, failed: 500 },
-  { month: "MAY", confirmed: 4000, awaited: 1600, cancelled: 900,  failed: 450 },
-  { month: "JUN", confirmed: 3800, awaited: 2400, cancelled: 1100, failed: 550 },
-  { month: "JUL", confirmed: 4200, awaited: 2000, cancelled: 800,  failed: 300 },
-  { month: "AUG", confirmed: 3600, awaited: 2600, cancelled: 1300, failed: 600 },
-  { month: "SEP", confirmed: 3000, awaited: 1900, cancelled: 950,  failed: 400 },
-  { month: "OCT", confirmed: 2700, awaited: 1700, cancelled: 850,  failed: 350 },
-  { month: "NOV", confirmed: 3100, awaited: 2100, cancelled: 1000, failed: 480 },
-  { month: "DEC", confirmed: 4500, awaited: 2500, cancelled: 1200, failed: 520 },
-]
-
-const tableData = Array(5).fill({
-  id: "#12354564",
-  name: "Watson Joyce",
-  phone: "+1 (123) 123 4654",
-  date: "28. 03. 2024",
-  checkIn: "03 : 18 PM",
-  checkOut: "05 : 00 PM",
-  total: "$250.00",
-})
 
 const tabs = ["Reservation Report", "Revenue Report", "Staff Report"]
-const filterTabs = ["Confirmed", "Awaited", "Cancelled", "Failed"]
-
+const filterTabs = ["Present", "Half Shift", "Absent", "Leave"]
 const lineColors = {
   confirmed: "#e75480",
   awaited:   "#c084a0",
@@ -58,6 +29,92 @@ export default function StaffReport() {
   const [activeTab]                     = useState("Staff Report")
   const [activeFilter, setActiveFilter] = useState("Confirmed")
   const navigate = useNavigate()
+
+  const [users, setUsers] = useState([])
+  const [attendanceRecords, setAttendanceRecords] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch users and attendance
+  useEffect(() => {
+    const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
+      setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    })
+    
+    // Fetch attendance for current month
+    const today = new Date().toISOString().split("T")[0]
+    const monthStart = today.slice(0, 7) + "-01"  // "2026-06-01"
+    
+    const q = query(
+      collection(db, "attendance"),
+      where("date", ">=", monthStart)
+    )
+    const unsubAttendance = onSnapshot(q, (snap) => {
+      setAttendanceRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setLoading(false)
+    })
+    
+    return () => {
+      unsubUsers()
+      unsubAttendance()
+    }
+  }, [])
+
+  // Compute pie data: staff by role
+  const roleCounts = {}
+  users.forEach(u => {
+    const role = u.role || "Unknown"
+    roleCounts[role] = (roleCounts[role] || 0) + 1
+  })
+
+  const pieData = Object.entries(roleCounts).map(([name, value], i) => ({
+    name,
+    value,
+    color: ["#e75480", "#c084a0", "#7d3f5a", "#f9a8c9", "#a8557c"][i % 5],
+  }))
+
+  // Compute monthly line data: attendance trends
+  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+  const lineData = monthNames.map((month, i) => {
+    const monthAttendance = attendanceRecords.filter(a => {
+      if (!a.date) return false
+      const date = new Date(a.date + "T00:00:00")
+      return date.getMonth() === i
+    })
+    
+    return {
+      month,
+      confirmed: monthAttendance.filter(a => a.status === "Present").length,
+      awaited: monthAttendance.filter(a => a.status === "Half Shift").length,
+      cancelled: monthAttendance.filter(a => a.status === "Absent").length,
+      failed: monthAttendance.filter(a => a.status === "Leave").length,
+    }
+  })
+
+  // Compute table data: staff with attendance today
+  const today = new Date().toISOString().split("T")[0]
+  const todayAttendance = {}
+  attendanceRecords.forEach(a => {
+    if (a.date === today) {
+      todayAttendance[a.staffId] = a.status
+    }
+  })
+
+  const tableData = users.slice(0, 5).map(u => {
+    const status = todayAttendance[u.id]
+    return {
+      id: u.staffId || u.id.slice(-8),
+      name: u.fullName || "Unknown",
+      phone: u.phone || "N/A",
+      date: new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).replace(/\//g, ". "),
+      checkIn: u.shiftStart || "—",
+      checkOut: u.shiftEnd || "—",
+      total: status || "Not Marked",
+    }
+  })
 
   const tabRoutes = {
     "Reservation Report": "/reports",
@@ -127,7 +184,7 @@ export default function StaffReport() {
               </PieChart>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-xs text-gray-400">Total</span>
-                <span className="text-2xl font-bold">50</span>
+                <span className="text-2xl font-bold">{users.length}</span>
               </div>
             </div>
             <div className="flex flex-col gap-2">
@@ -184,15 +241,15 @@ export default function StaffReport() {
                     i % 2 === 0 ? "bg-[#1d1d1d]" : "bg-[#212121]"
                   }`}
                 >
-                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Reservation ID</div><div className="text-white font-medium">{row.id}</div></td>
+                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Staff ID</div><div className="text-white font-medium">{row.id}</div></td>
                   <td className="w-px"><div className="w-px h-6 bg-[#3a3a3a] mx-auto"></div></td>
-                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Customer Name</div><div className="text-white">{row.name}</div></td>
+                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Staff Name</div><div className="text-white">{row.name}</div></td>
                   <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Phone Number</div><div className="text-white">{row.phone}</div></td>
-                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Reservation Date</div><div className="text-white">{row.date}</div></td>
+                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Shift Date</div><div className="text-white">{row.date}</div></td>
                   <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Check In</div><div className="text-white">{row.checkIn}</div></td>
                   <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Check Out</div><div className="text-white">{row.checkOut}</div></td>
                   <td className="w-px"><div className="w-px h-6 bg-[#3a3a3a] mx-auto"></div></td>
-                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Total</div><div className="text-white font-semibold">{row.total}</div></td>
+                  <td className="px-4 py-3"><div className="text-xs text-[#F5C6CC]">Today's Status</div><div className="text-white font-semibold">{row.total}</div></td>
                 </tr>
               ))}
             </tbody>

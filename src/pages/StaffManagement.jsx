@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react"
 import { FiEye, FiEdit2, FiTrash2, FiChevronDown } from "react-icons/fi"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { db } from "../firebase/config"
 import { collection, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore"
 
 function StaffManagement() {
     const navigate = useNavigate()
     const [isModalOpen, setIsModalOpen] = useState(false)
-
+    const location = useLocation()
     const [staffList, setStaffList] = useState([])
     const [loading, setLoading] = useState(true)
     const [formData, setFormData] = useState({
@@ -22,6 +22,15 @@ function StaffManagement() {
         additionalDetails: "",
         avatar: ""
     })
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search)
+        if (params.get("add") === "true") {
+            setIsModalOpen(true)
+            // Clean the URL so refresh doesn't reopen modal
+            navigate("/staff", { replace: true })
+        }
+    }, [location.search, navigate])
 
     // Fetch staff from Firebase
     useEffect(() => {
@@ -73,6 +82,13 @@ function StaffManagement() {
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
             })
+            await addDoc(collection(db, "notifications"), {
+                title: "New Staff Added",
+                message: `${formData.fullName} joined as ${formData.role}`,
+                type: "staff",
+                read: false,
+                createdAt: serverTimestamp(),
+            });
             setIsModalOpen(false)
             setFormData({
                 fullName: "", email: "", role: "", phone: "", salary: "",

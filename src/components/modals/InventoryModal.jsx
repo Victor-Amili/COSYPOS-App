@@ -106,7 +106,16 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSaved }
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
+               // ← ADD NOTIFICATION HERE
+        await addDoc(collection(db, "notifications"), {
+          title: "New Product Added",
+          message: `${data.name} added to ${data.categoryName} — $${data.price.toFixed(2)}`,
+          type: "inventory",
+          read: false,
+          createdAt: serverTimestamp(),
+        });
       }
+      
 
       onSaved?.();
       onClose();

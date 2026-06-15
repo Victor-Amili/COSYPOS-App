@@ -14,7 +14,7 @@ function ProtectedRoute({ requiredPermission }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // Optional: check specific permission

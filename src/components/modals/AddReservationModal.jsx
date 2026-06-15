@@ -92,6 +92,14 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
           updatedAt: serverTimestamp(),
         });
       }
+      // ← ADD NOTIFICATION HERE (only for new reservations)
+      await addDoc(collection(db, "notifications"), {
+        title: "New Reservation",
+        message: `Table ${data.tableNumber} reserved for ${data.customer.firstName} ${data.customer.lastName} at ${data.reservationTime}`,
+        type: "reservation",
+        read: false,
+        createdAt: serverTimestamp(),
+      })
       onSaved?.();
       onClose();
     } catch (err) {

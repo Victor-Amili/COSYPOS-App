@@ -14,6 +14,10 @@ function Navbar({ setSidebarOpen }) {
             return location.state?.name || "Staff Profile"
         }
 
+         if (location.pathname.startsWith("/reservation/") && location.pathname !== "/reservation") {
+            return "Reservation Details"
+        }
+
         switch (location.pathname) {
             case "/":
                 return "Dashboard"
@@ -32,6 +36,15 @@ function Navbar({ setSidebarOpen }) {
 
             case "/reports":
                 return "Reports"
+
+            case "/revenue-report":
+                return "Reports"
+
+            case "/staff-report":
+                return "Reports"
+
+            case "/reservation/:id":
+                return "Reservation Details"
 
             case "/orders":
                 return "Order"
