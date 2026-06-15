@@ -38,6 +38,9 @@ function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders-tables" element={<OrdersTables />} />
             <Route path="/notifications" element={<Notificaton />} />
+            <Route path="/reports" element={<ReservationReport />} />
+            <Route path="/revenue-report" element={<RevenueReport />} />
+            <Route path="/staff-report" element={<StaffReport />} />
 
             <Route path="/staff" element={<StaffManagement />} />
             <Route path="/staff/attendance" element={<Attendance />} />
@@ -53,7 +56,7 @@ function App() {
           </Route>
         </Route>
 
-        {/* Fallback */}
+        
 
 
       </Routes>
