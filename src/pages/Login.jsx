@@ -22,7 +22,7 @@ export default function Login() {
       // ── Replace this block with your real auth call ──────────────────
       // e.g. await signInWithEmailAndPassword(auth, username, password);
       await new Promise((res) => setTimeout(res, 1000)); // simulate API
-      if (username === "admin" && password === "password") {
+      if (username === "paul" && password === "paulino22") {
         if (rememberMe) localStorage.setItem("cosypos_user", username);
         navigate("/dashboard");
       } else {
