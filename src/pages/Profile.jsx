@@ -4,6 +4,7 @@ import { FiUser, FiSettings, FiLogOut, FiEdit2 } from "react-icons/fi"
 import { Eye, EyeOff } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
 import { updateUserProfile, updateUserPassword } from "../services/authService"
+import ManageAccess, { AddUserPanel } from "./ManageAccess"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { storage } from "../firebase/config"
 
@@ -29,7 +30,7 @@ function Profile() {
     const [saving, setSaving] = useState(false)
     const [feedback, setFeedback] = useState({ type: "", message: "" })
 
-    // Fill the form once the authenticated user is available
+    // Populate the form once the authenticated user is available
     useEffect(() => {
         if (user) {
             setFormData({
@@ -146,36 +147,37 @@ function Profile() {
             <div className="flex flex-col md:flex-row gap-6 items-start">
 
                 {/* LEFT - TAB NAV */}
-                <div className="w-full md:w-[260px] bg-[#1d1d1d] rounded-2xl p-3 space-y-2">
-                    {tabs.map((tab) => {
-                        const Icon = tab.icon
-                        const active = activeTab === tab.id
+                <div className="w-full md:w-[260px] space-y-4">
+                    <div className="bg-[#1d1d1d] rounded-2xl p-3 space-y-2">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon
+                            const active = activeTab === tab.id
 
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={tab.onClick}
-                                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
-                                    ${active
-                                        ? "bg-[#F5C6CC] text-[#7D5B67]"
-                                        : "text-white hover:bg-white/5"
-                                    }`}
-                            >
-                                <Icon size={16} />
-                                {tab.label}
-                            </button>
-                        )
-                    })}
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={tab.onClick}
+                                    className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
+                                        ${active
+                                            ? "bg-[#F5C6CC] text-[#7D5B67]"
+                                            : "text-white hover:bg-white/5"
+                                        }`}
+                                >
+                                    <Icon size={16} />
+                                    {tab.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {activeTab === "access" && <AddUserPanel />}
                 </div>
 
                 {/* RIGHT - CONTENT */}
                 <div className="w-full flex-1 bg-[#1d1d1d] rounded-2xl p-6 md:p-8">
 
                     {activeTab === "access" ? (
-                        <div className="text-gray-400 text-sm">
-                            {/* Owned by a teammate — swap in their <ManageAccess /> component here once it's ready */}
-                            Manage Access is being built separately — check back soon.
-                        </div>
+                        <ManageAccess />
                     ) : (
                         <>
                             <h2 className="text-xl md:text-2xl font-bold text-white mb-6">
