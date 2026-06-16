@@ -53,6 +53,8 @@ function App() {
             <Route path="/reports" element={<ReservationReport />} />
             <Route path="/revenue-report" element={<RevenueReport />} />
             <Route path="/staff-report" element={<StaffReport />} />
+            <Route path="/profile" element={<Profile />} />
+            
 
           </Route>
         </Route>

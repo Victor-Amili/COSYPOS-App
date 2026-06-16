@@ -94,7 +94,7 @@ function Profile() {
         }
 
         setSaving(true)
-        setFeedback({ type: "", message: "" })
+        setFeedback({ type: "", message: "" })``
 
         try {
             let avatarUrl = user.avatar || ""
