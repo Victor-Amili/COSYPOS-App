@@ -54,6 +54,9 @@ function Navbar({ setSidebarOpen }) {
                 return "Notifications"
             case "/orders-tables":
                 return "Order/Table"
+            case "/profile":
+                return "Profile"
+ 
 
 
             default:
