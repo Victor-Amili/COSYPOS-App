@@ -89,7 +89,7 @@ export default function InventoryPage() {
                 {STATUS_FILTERS.map((s) => (
                   <button key={s} onClick={() => setStatusFilter(s)}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition border ${
-                      statusFilter === s ? "border-pink-400/50 bg-pink-400/10 text-white" : "border-white/10 bg-[#2a2a2a] text-white/60 hover:border-white/20"
+                      statusFilter === s ? "border-brand/50 bg-brand/10 text-white" : "border-white/10 bg-[#2a2a2a] text-white/60 hover:border-white/20"
                     }`}>
                     <span>{s}</span>
                     <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${statusFilter === s ? "bg-brand text-gray-800" : "bg-white/10 text-white/50"}`}>
@@ -122,7 +122,7 @@ export default function InventoryPage() {
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Piece / Item / Quantity</h3>
               <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="50"
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm" />
+                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
             </div>
 
             {/* Price */}
@@ -131,18 +131,18 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 <div className="relative">
                   <input type="number" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} placeholder="Min"
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm" />
+                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
                 </div>
                 <div className="relative">
                   <input type="number" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} placeholder="Max"
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-pink-400/60 transition text-sm" />
+                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
                 </div>
               </div>
             </div>
 
-            <button onClick={handleResetFilters} className="w-full bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 font-semibold py-3 rounded-xl transition text-sm">
+            <button onClick={handleResetFilters} className="w-full bg-brand/20 hover:bg-brand/30 text-brand font-semibold py-3 rounded-xl transition text-sm">
               Reset Filters
             </button>
           </div>
@@ -175,7 +175,7 @@ export default function InventoryPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium text-sm">{item.name}</p>
                     <p className="text-white/40 text-xs mt-0.5">
-                      Stocked Product : <span className="text-pink-400 font-semibold">{item.quantity} In Stock</span>
+                      Stocked Product : <span className="text-brand font-semibold">{item.quantity} In Stock</span>
                     </p>
                   </div>
                   <div className="hidden sm:flex items-center gap-6 flex-shrink-0">
