@@ -71,9 +71,9 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
       const data = { ...form, image: imageUrl, ...(isEdit ? {} : { itemId }) };
 
       if (isEdit) {
-        await updateDoc(doc(db, "menuItems", item.id), data);
+        await updateDoc(doc(db, "products", item.id), data);
       } else {
-        await addDoc(collection(db, "menuItems"), data);
+        await addDoc(collection(db, "product"), data);
       }
 
       onSaved?.();
