@@ -252,7 +252,7 @@ function Attendance() {
                                                             }
                                                             className="
                                                     px-3 py-1 rounded-lg
-                                                    bg-pink-100
+                                                    bg-#F5C6CC-100
                                                     text-pink-600
                                                     text-sm font-medium"
                                                         >
