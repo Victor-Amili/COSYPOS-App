@@ -1,9 +1,30 @@
 import { FiBell, FiChevronLeft, FiMenu } from "react-icons/fi"
 import { useNavigate, useLocation } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { db } from "../firebase/config";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+
 
 function Navbar({ setSidebarOpen }) {
     const navigate = useNavigate()
     const location = useLocation()
+
+
+
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        const q = query(
+            collection(db, "notifications"),
+            where("read", "==", false)
+        );
+
+        const unsub = onSnapshot(q, (snap) => {
+            setUnreadCount(snap.size);
+        });
+
+        return () => unsub();
+    }, []);
 
     const getPageTitle = () => {
 
@@ -14,7 +35,7 @@ function Navbar({ setSidebarOpen }) {
             return location.state?.name || "Staff Profile"
         }
 
-         if (location.pathname.startsWith("/reservation/") && location.pathname !== "/reservation") {
+        if (location.pathname.startsWith("/reservation/") && location.pathname !== "/reservation") {
             return "Reservation Details"
         }
 
@@ -65,7 +86,7 @@ function Navbar({ setSidebarOpen }) {
     }
 
     return (
-        <div className="h-16 px-6 flex items-center justify-between bg-black">
+        <div className="h-14 sm:h-16 px-4 sm:px-6 flex items-center justify-between bg-black">
 
             {/* Left Side */}
             <div className="flex items-center">
@@ -79,7 +100,7 @@ function Navbar({ setSidebarOpen }) {
                     <FiChevronLeft />
                 </button>
 
-                <h1 className="text-3xl font-bold text-white">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white truncate">
                     {getPageTitle()}
                 </h1>
 
@@ -94,15 +115,17 @@ function Navbar({ setSidebarOpen }) {
                     className="relative cursor-pointer"
                 >
                     <FiBell size={15} className="text-white" />
+                    {unreadCount > 0 && (
 
-                    <div
-                        className="absolute -top-2 -right-2
+                        <div
+                            className="absolute -top-2 -right-2
                     w-4 h-4 rounded-full bg-[#F5C6CC]
-                    text-black text-[10px]
+                    text-[#7D5B67] text-[10px]
                     flex items-center justify-center font-bold"
-                    >
-                        3
-                    </div>
+                        >
+                            {unreadCount > 99 ? "99+" : unreadCount};
+                        </div>
+                    )}
                 </div>
 
                 {/* Divider */}
