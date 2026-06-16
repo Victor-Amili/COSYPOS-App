@@ -1,334 +1,336 @@
-import { useState, useEffect, useRef } from "react"
-import { useNavigate } from "react-router-dom"
-import { FiUser, FiSettings, FiLogOut, FiEdit2 } from "react-icons/fi"
+import { useState, useEffect } from "react"
+import { collection, onSnapshot } from "firebase/firestore"
+import { db } from "../firebase/config"
+import { FiEdit2, FiTrash2, FiCheck, FiX } from "react-icons/fi"
 import { Eye, EyeOff } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
-import { updateUserProfile, updateUserPassword } from "../services/authService"
-import ManageAccess, { AddUserPanel } from "./ManageAccess"
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import { storage } from "../firebase/config"
+import { createStaffUser, deleteUserAuth, updateUserPermissions } from "../services/authService"
+import { updateStaffMember } from "../services/userService"
+import CustomSelect from "../components/CustomSelect"
 
-function Profile() {
-    const { user, logout } = useAuth()
-    const navigate = useNavigate()
-    const fileInputRef = useRef(null)
+const PERMISSION_KEYS = [
+    { key: "dashboard", label: "Dashboard" },
+    { key: "reports", label: "Reports" },
+    { key: "inventory", label: "Inventory" },
+    { key: "orders", label: "Orders" },
+    { key: "customers", label: "Customers" },
+    { key: "settings", label: "Settings" },
+]
 
-    const [activeTab, setActiveTab] = useState("profile") // "profile" | "access"
+const ROLE_OPTIONS = [
+    { value: "admin", label: "Admin" },
+    { value: "manager", label: "Manager" },
+    { value: "sub-admin", label: "Sub Admin" },
+    { value: "staff", label: "Staff" },
+]
 
-    const [formData, setFormData] = useState({
-        fullName: "",
-        email: "",
-        address: "",
-        newPassword: "",
-        confirmPassword: "",
-    })
+// Matches the defaults in usePermissions.js / the createStaffUser Cloud Function
+const DEFAULT_PERMISSIONS = {
+    dashboard: true,
+    reports: false,
+    inventory: false,
+    orders: true,
+    customers: false,
+    settings: false,
+}
 
-    const [avatarFile, setAvatarFile] = useState(null)
-    const [avatarPreview, setAvatarPreview] = useState("")
-    const [showNewPassword, setShowNewPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-    const [saving, setSaving] = useState(false)
+const ROLE_BADGE_STYLES = {
+    admin: "bg-[#F5C6CC] text-[#7D5B67]",
+    manager: "bg-[#F5C6CC] text-[#7D5B67]",
+}
+const DEFAULT_BADGE_STYLE = "bg-white/10 text-white"
+
+function Toggle({ checked, onChange }) {
+    return (
+        <button
+            type="button"
+            onClick={onChange}
+            className={`w-11 h-6 rounded-full relative transition-colors duration-200 ${checked ? "bg-[#F5C6CC]" : "bg-[#3a3a3a]"
+                }`}
+        >
+            <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-5" : "translate-x-0"
+                    }`}
+            />
+        </button>
+    )
+}
+
+/**
+ * "Add New User" panel — rendered in Profile.jsx's LEFT column, under the tab nav,
+ * matching the Figma layout. Backed by the createStaffUser Cloud Function, so it
+ * creates a real Auth login without signing the current admin/manager out.*/
+export function AddUserPanel() {
+    const { user } = useAuth()
+    const canAddUsers = user?.role === "admin" || user?.role === "manager"
+
+    const [newUser, setNewUser] = useState({ fullName: "", email: "", role: "", password: "" })
+    const [showPassword, setShowPassword] = useState(false)
+    const [adding, setAdding] = useState(false)
     const [feedback, setFeedback] = useState({ type: "", message: "" })
 
-    // Populate the form once the authenticated user is available
-    useEffect(() => {
-        if (user) {
-            setFormData({
-                fullName: user.fullName || "",
-                email: user.email || "",
-                address: user.address || "",
-                newPassword: "",
-                confirmPassword: "",
-            })
-            setAvatarPreview(user.avatar || "https://i.pravatar.cc/150")
+    if (!canAddUsers) {
+        return (
+            <div className="bg-[#1d1d1d] rounded-2xl p-6 text-gray-400 text-sm">
+                Only admins and managers can add new users.
+            </div>
+        )
+    }
+
+    const handleAddUser = async () => {
+        if (!newUser.fullName || !newUser.email || !newUser.role || !newUser.password) {
+            setFeedback({ type: "error", message: "Please fill in all fields." })
+            return
         }
-    }, [user])
-
-    const handleChange = (e) => {
-        const { name, value } = e.target
-        setFormData((prev) => ({ ...prev, [name]: value }))
-    }
-
-    const handleAvatarClick = () => {
-        fileInputRef.current?.click()
-    }
-
-    const handleAvatarChange = (e) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
-        if (!file.type.startsWith("image/")) {
-            setFeedback({ type: "error", message: "Please select a valid image file." })
+        if (newUser.password.length < 6) {
+            setFeedback({ type: "error", message: "Password must be at least 6 characters." })
             return
         }
 
-        setAvatarFile(file)
-        setAvatarPreview(URL.createObjectURL(file))
-    }
-
-    const handleDiscard = () => {
-        if (!user) return
-        setFormData({
-            fullName: user.fullName || "",
-            email: user.email || "",
-            address: user.address || "",
-            newPassword: "",
-            confirmPassword: "",
-        })
-        setAvatarFile(null)
-        setAvatarPreview(user.avatar || "https://i.pravatar.cc/150")
+        setAdding(true)
         setFeedback({ type: "", message: "" })
-    }
-
-    const handleSave = async () => {
-        if (!user) return
-
-        if (formData.newPassword || formData.confirmPassword) {
-            if (formData.newPassword.length < 6) {
-                setFeedback({ type: "error", message: "Password must be at least 6 characters." })
-                return
-            }
-            if (formData.newPassword !== formData.confirmPassword) {
-                setFeedback({ type: "error", message: "Passwords do not match." })
-                return
-            }
-        }
-
-        setSaving(true)
-        setFeedback({ type: "", message: "" })
-
         try {
-            let avatarUrl = user.avatar || ""
-
-            if (avatarFile) {
-                const storageRef = ref(storage, `avatars/${user.uid}_${Date.now()}_${avatarFile.name}`)
-                await uploadBytes(storageRef, avatarFile)
-                avatarUrl = await getDownloadURL(storageRef)
-            }
-
-            await updateUserProfile(user.uid, {
-                fullName: formData.fullName,
-                email: formData.email,
-                address: formData.address,
-                avatar: avatarUrl,
-            })
-
-            if (formData.newPassword) {
-                await updateUserPassword(formData.newPassword)
-            }
-
-            setAvatarFile(null)
-            setFormData((prev) => ({ ...prev, newPassword: "", confirmPassword: "" }))
-            setFeedback({ type: "success", message: "Profile updated successfully." })
+            await createStaffUser(newUser)
+            setNewUser({ fullName: "", email: "", role: "", password: "" })
+            setFeedback({ type: "success", message: "User added successfully." })
         } catch (error) {
-            console.error("Update profile error:", error)
-            setFeedback({
-                type: "error",
-                message: error.message || "Something went wrong. Please try again.",
-            })
+            console.error("Add user error:", error)
+            setFeedback({ type: "error", message: error.message || "Failed to add user." })
         } finally {
-            setSaving(false)
+            setAdding(false)
         }
     }
-
-    const handleLogout = async () => {
-        await logout()
-        navigate("/")
-    }
-
-    const tabs = [
-        { id: "profile", label: "My Profile", icon: FiUser, onClick: () => setActiveTab("profile") },
-        { id: "access", label: "Manage Access", icon: FiSettings, onClick: () => setActiveTab("access") },
-        { id: "logout", label: "Logout", icon: FiLogOut, onClick: handleLogout },
-    ]
 
     return (
-        <div className="w-full">
-            <div className="flex flex-col md:flex-row gap-6 items-start">
+        <div className="bg-[#1d1d1d] rounded-2xl p-5">
+            <h3 className="text-white text-base font-bold mb-4">Add New User</h3>
 
-                {/* LEFT - TAB NAV */}
-                <div className="w-full md:w-[260px] space-y-4">
-                    <div className="bg-[#1d1d1d] rounded-2xl p-3 space-y-2">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon
-                            const active = activeTab === tab.id
+            {feedback.message && (
+                <p className={`text-xs mb-3 ${feedback.type === "error" ? "text-red-400" : "text-green-400"}`}>
+                    {feedback.message}
+                </p>
+            )}
 
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={tab.onClick}
-                                    className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
-                                        ${active
-                                            ? "bg-[#F5C6CC] text-[#7D5B67]"
-                                            : "text-white hover:bg-white/5"
-                                        }`}
-                                >
-                                    <Icon size={16} />
-                                    {tab.label}
-                                </button>
-                            )
-                        })}
-                    </div>
+            <div className="space-y-3">
+                <input
+                    placeholder="First Name"
+                    value={newUser.fullName}
+                    onChange={(e) => setNewUser((p) => ({ ...p, fullName: e.target.value }))}
+                    className="w-full h-[48px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-500 text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
+                />
+                <input
+                    placeholder="Email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full h-[48px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-500 text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
+                />
 
-                    {activeTab === "access" && <AddUserPanel />}
+                <CustomSelect
+                    placeholder="Role"
+                    value={newUser.role}
+                    onChange={(val) => setNewUser((p) => ({ ...p, role: val }))}
+                    options={ROLE_OPTIONS}
+                />
+
+                <div className="relative">
+                    <input
+                        placeholder="Password"
+                        type={showPassword ? "text" : "password"}
+                        value={newUser.password}
+                        onChange={(e) => setNewUser((p) => ({ ...p, password: e.target.value }))}
+                        className="w-full h-[48px] bg-[#343434] rounded-[10px] px-4 pr-12 placeholder-gray-500 text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#F5C6CC]"
+                    >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                 </div>
 
-                {/* RIGHT - CONTENT */}
-                <div className="w-full flex-1 bg-[#1d1d1d] rounded-2xl p-6 md:p-8">
-
-                    {activeTab === "access" ? (
-                        <ManageAccess />
-                    ) : (
-                        <>
-                            <h2 className="text-xl md:text-2xl font-bold text-white mb-6">
-                                Personal Information
-                            </h2>
-
-                            {feedback.message && (
-                                <p className={`text-sm mb-4 ${feedback.type === "error" ? "text-red-400" : "text-green-400"}`}>
-                                    {feedback.message}
-                                </p>
-                            )}
-
-                            {/* AVATAR */}
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="relative w-24 h-24">
-                                    <img
-                                        src={avatarPreview || "https://i.pravatar.cc/150"}
-                                        alt={formData.fullName}
-                                        className="w-24 h-24 rounded-full object-cover"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleAvatarClick}
-                                        className="absolute bottom-0 right-0 w-7 h-7 bg-[#F5C6CC] rounded-full flex items-center justify-center text-[#7D5B67] hover:scale-105 transition-transform"
-                                    >
-                                        <FiEdit2 size={13} />
-                                    </button>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleAvatarChange}
-                                        className="hidden"
-                                    />
-                                </div>
-
-                                <div>
-                                    <p className="text-white text-lg font-bold">{formData.fullName || "—"}</p>
-                                    <p className="text-[#F5C6CC] text-sm capitalize">{user?.role || ""}</p>
-                                </div>
-                            </div>
-
-                            {/* FORM */}
-                            <div className="space-y-5">
-
-                                <div>
-                                    <label className="text-white text-sm font-medium block mb-2">First Name</label>
-                                    <input
-                                        name="fullName"
-                                        value={formData.fullName}
-                                        onChange={handleChange}
-                                        className="w-full h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-500 text-white focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-white text-sm font-medium block mb-2">Email</label>
-                                    <input
-                                        name="email"
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        className="w-full h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-500 text-white focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-white text-sm font-medium block mb-2">Address</label>
-                                    <input
-                                        name="address"
-                                        value={formData.address}
-                                        onChange={handleChange}
-                                        className="w-full h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-500 text-white focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                                    <div>
-                                        <label className="text-white text-sm font-medium block mb-2">New Password</label>
-                                        <div className="relative">
-                                            <input
-                                                name="newPassword"
-                                                type={showNewPassword ? "text" : "password"}
-                                                value={formData.newPassword}
-                                                onChange={handleChange}
-                                                placeholder="Leave blank to keep current"
-                                                className="w-full h-[56px] bg-[#343434] rounded-[10px] px-4 pr-12 placeholder-gray-500 text-white focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowNewPassword(!showNewPassword)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#F5C6CC]"
-                                            >
-                                                {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-white text-sm font-medium block mb-2">Confirm Password</label>
-                                        <div className="relative">
-                                            <input
-                                                name="confirmPassword"
-                                                type={showConfirmPassword ? "text" : "password"}
-                                                value={formData.confirmPassword}
-                                                onChange={handleChange}
-                                                placeholder="Re-enter new password"
-                                                className="w-full h-[56px] bg-[#343434] rounded-[10px] px-4 pr-12 placeholder-gray-500 text-white focus:outline-none focus:ring-1 focus:ring-[#F5C6CC]/50"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#F5C6CC]"
-                                            >
-                                                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            {/* ACTIONS */}
-                            <div className="flex items-center justify-end gap-6 mt-10">
-                                <button
-                                    type="button"
-                                    onClick={handleDiscard}
-                                    disabled={saving}
-                                    className="text-white underline text-sm font-medium disabled:opacity-50"
-                                >
-                                    Discard Changes
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    className="bg-[#F5C6CC] text-[#7D5B67] font-semibold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
-                                >
-                                    {saving ? "Saving..." : "Save Changes"}
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-                </div>
-
+                <button
+                    type="button"
+                    onClick={handleAddUser}
+                    disabled={adding}
+                    className="w-full bg-[#F5C6CC] text-[#7D5B67] font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                    {adding ? "Adding..." : "Add"}
+                </button>
             </div>
         </div>
     )
 }
 
-export default Profile
+/**
+ * User list with live permission toggles — rendered in Profile.jsx's RIGHT column.
+ * Firestore rules only let admins write role/permissions on OTHER users' docs,
+ * so this view (edit, delete, toggles) is gated to admins, even though
+ * AddUserPanel above is open to managers too.
+ */
+function ManageAccess() {
+    const { user } = useAuth()
+    const isAdmin = user?.role === "admin"
+
+    const [users, setUsers] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [editingId, setEditingId] = useState(null)
+    const [editData, setEditData] = useState({ fullName: "", email: "", role: "" })
+    const [feedback, setFeedback] = useState({ type: "", message: "" })
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, "users"), (snap) => {
+            setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+            setLoading(false)
+        })
+        return () => unsub()
+    }, [])
+
+    if (!isAdmin) {
+        return (
+            <div className="text-gray-400 text-sm">
+                Only admins can manage user permissions.
+            </div>
+        )
+    }
+
+    const handleTogglePermission = async (targetUser, key) => {
+        const current = { ...DEFAULT_PERMISSIONS, ...targetUser.permissions }
+        const updated = { ...current, [key]: !current[key] }
+        try {
+            await updateUserPermissions(targetUser.id, updated)
+        } catch (error) {
+            console.error("Toggle permission error:", error)
+            setFeedback({ type: "error", message: "Failed to update permission." })
+        }
+    }
+
+    const startEdit = (targetUser) => {
+        setEditingId(targetUser.id)
+        setEditData({
+            fullName: targetUser.fullName || "",
+            email: targetUser.email || "",
+            role: targetUser.role || "staff",
+        })
+    }
+
+    const saveEdit = async (id) => {
+        try {
+            await updateStaffMember(id, editData)
+            setEditingId(null)
+        } catch (error) {
+            console.error("Edit user error:", error)
+            setFeedback({ type: "error", message: "Failed to update user." })
+        }
+    }
+
+    const handleDelete = async (targetUser) => {
+        if (targetUser.id === user?.uid) return
+        if (!window.confirm(`Remove ${targetUser.fullName}? This deletes their login too.`)) return
+        try {
+            await deleteUserAuth(targetUser.id)
+        } catch (error) {
+            console.error("Delete user error:", error)
+            setFeedback({ type: "error", message: error.message || "Failed to delete user." })
+        }
+    }
+
+    return (
+        <div>
+            {feedback.message && (
+                <p className={`text-sm mb-4 ${feedback.type === "error" ? "text-red-400" : "text-green-400"}`}>
+                    {feedback.message}
+                </p>
+            )}
+
+            {loading ? (
+                <div className="text-gray-500 text-sm py-8 text-center">Loading users...</div>
+            ) : users.length === 0 ? (
+                <div className="text-gray-500 text-sm py-8 text-center">No users found</div>
+            ) : (
+                <div className="divide-y divide-white/10">
+                    {users.map((u) => {
+                        const perms = { ...DEFAULT_PERMISSIONS, ...u.permissions }
+                        const isEditing = editingId === u.id
+                        const badgeStyle = ROLE_BADGE_STYLES[u.role] || DEFAULT_BADGE_STYLE
+                        const isSelf = u.id === user?.uid
+
+                        return (
+                            <div key={u.id} className="py-5 first:pt-0">
+
+                                <div className="flex items-start justify-between mb-1 gap-4 flex-wrap">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        {isEditing ? (
+                                            <input
+                                                value={editData.fullName}
+                                                onChange={(e) => setEditData((p) => ({ ...p, fullName: e.target.value }))}
+                                                className="bg-[#343434] rounded-lg px-3 py-1.5 text-white text-base font-bold focus:outline-none"
+                                            />
+                                        ) : (
+                                            <h3 className="text-white text-lg font-bold">{u.fullName}</h3>
+                                        )}
+
+                                        {isEditing ? (
+                                            <div className="w-36">
+                                                <CustomSelect
+                                                    value={editData.role}
+                                                    onChange={(val) => setEditData((p) => ({ ...p, role: val }))}
+                                                    options={ROLE_OPTIONS}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className={`text-xs font-semibold px-3 py-1 rounded-lg capitalize ${badgeStyle}`}>
+                                                {u.role}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        {isEditing ? (
+                                            <>
+                                                <FiCheck onClick={() => saveEdit(u.id)} className="text-green-400 cursor-pointer hover:text-green-300" />
+                                                <FiX onClick={() => setEditingId(null)} className="text-gray-400 cursor-pointer hover:text-white" />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FiEdit2 onClick={() => startEdit(u)} className="text-white hover:text-[#F5C6CC] cursor-pointer" />
+                                                <FiTrash2
+                                                    onClick={() => !isSelf && handleDelete(u)}
+                                                    title={isSelf ? "You can't delete your own account" : "Delete user"}
+                                                    className={isSelf ? "text-gray-600 cursor-not-allowed" : "text-red-400 hover:text-red-500 cursor-pointer"}
+                                                />
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {isEditing ? (
+                                    <input
+                                        value={editData.email}
+                                        onChange={(e) => setEditData((p) => ({ ...p, email: e.target.value }))}
+                                        className="bg-[#343434] rounded-lg px-3 py-1.5 text-white text-sm mb-4 w-full md:w-80 focus:outline-none"
+                                    />
+                                ) : (
+                                    <p className="text-[#F5C6CC] text-sm mb-4">{u.email}</p>
+                                )}
+
+                                <div className="flex flex-wrap gap-x-8 gap-y-3">
+                                    {PERMISSION_KEYS.map(({ key, label }) => (
+                                        <div key={key} className="flex flex-col gap-2 min-w-[90px]">
+                                            <span className="text-white text-sm font-medium">{label}</span>
+                                            <Toggle checked={!!perms[key]} onChange={() => handleTogglePermission(u, key)} />
+                                        </div>
+                                    ))}
+                                </div>
+
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+        </div>
+    )
+}
+
+export default ManageAccess
