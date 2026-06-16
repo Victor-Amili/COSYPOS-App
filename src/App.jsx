@@ -16,6 +16,7 @@ import ReservationDetailPage from "./pages/ReservationDetailPage"
 import StaffManagement from "./pages/StaffManagement"
 import Attendance from "./pages/Attendance"
 import StaffProfile from "./pages/StaffProfile"
+import Profile from "./pages/Profile"
 import Login from "./pages/Login";
 import ForgottenPassword from "./pages/ForgottenPassword";
 import CustomerPayment from "./pages/CustomerPayment";
