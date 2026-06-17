@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "../../firebase/config";
-import { collection, addDoc, updateDoc, doc, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
 import CustomSelect from "../CustomSelect";
 import CustomTimePicker from "../CustomTimePicker";
 
@@ -28,6 +28,16 @@ function getDateLabel(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
   return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
+
+// Original File Structure: Core floor-resolver calculation function
+const getFloorFromTable = (tableNumber) => {
+  const table = tableNumber?.toString().trim();
+  if (!table) return "1st";
+  if (table === "Bar" || /^[A-C]\d*$/.test(table)) return "1st";
+  if (/^[D-F]\d*$/.test(table)) return "2nd";
+  if (/^[G-H]\d*$/.test(table)) return "3rd";
+  return "1st";
+};
 
 function DatePicker({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -97,7 +107,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
     floor: prefill.floor || "1st Floor",
     tableNumber: prefill.tableNumber || "Bar",
     paxNumber: "",
-    reservateDate: prefill.date || "",
+    reservationDate: prefill.date || "",
     reservationTime: prefill.time || "",
     duration: prefill.duration || "1",
     depositFee: "",
@@ -116,35 +126,44 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
 
   useEffect(() => {
     if (reservation) {
-      setForm({ duration: "1", ...reservation });
+      setForm({
+        duration: "1",
+        ...reservation,
+        // Match original parsing parameters safely
+        floor: reservation.floor ? (reservation.floor.endsWith("Floor") ? reservation.floor : `${reservation.floor} Floor`) : "1st Floor",
+        firstName: reservation.customer?.firstName || "",
+        lastName: reservation.customer?.lastName || "",
+        phoneNumber: reservation.customer?.phone || "",
+        emailAddress: reservation.customer?.email || "",
+      });
     } else {
       setForm((prev) => ({
         ...prev,
         floor: prefill.floor || "1st Floor",
         tableNumber: prefill.tableNumber || "Bar",
-        reservateDate: prefill.date || "",
+        reservationDate: prefill.date || "",
         reservationTime: prefill.time || "",
         duration: prefill.duration || "1",
         customerId: `#${Math.floor(10000000 + Math.random() * 90000000)}`,
       }));
     }
     setError("");
-  }, [reservation, isOpen]);
+  }, [reservation, isOpen, prefill]);
 
-  // Fetch booked hours whenever table or date changes
+  // Original File Structure: Fetches occupied spans using your dynamic parameters
   useEffect(() => {
-    if (!form.tableNumber || !form.reservateDate) { setBookedHours([]); return; }
+    if (!form.tableNumber || !form.reservationDate) { setBookedHours([]); return; }
     const fetchBooked = async () => {
       try {
         const q = query(collection(db, "reservations"),
           where("tableNumber", "==", form.tableNumber),
-          where("reservateDate", "==", form.reservateDate)
+          where("reservationDate", "==", form.reservationDate)
         );
         const snap = await getDocs(q);
         const booked = [];
         snap.docs.forEach((d) => {
           const r = d.data();
-          if (isEdit && d.id === reservation?.id) return; // skip self when editing
+          if (isEdit && d.id === reservation?.id) return;
           const startHour = parseInt(r.reservationTime?.slice(0, 2), 10);
           const dur = parseInt(r.duration || "1", 10);
           for (let i = 0; i < dur; i++) {
@@ -155,7 +174,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
       } catch (e) { console.error(e); }
     };
     fetchBooked();
-  }, [form.tableNumber, form.reservateDate]);
+  }, [form.tableNumber, form.reservationDate, isEdit, reservation?.id]);
 
   const handleChange = (field, val) => {
     setForm((prev) => ({ ...prev, [field]: val }));
@@ -164,7 +183,6 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
     }
   };
 
-  // Compute disabled hours considering duration
   const getDisabledHours = () => {
     const dur = parseInt(form.duration || "1", 10);
     return HOURS_ALL.filter((hour) => {
@@ -172,7 +190,6 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
       for (let i = 0; i < dur; i++) {
         if (bookedHours.includes(HOURS_ALL[startIdx + i])) return true;
       }
-      // Also disable if booking would exceed closing time
       if (startIdx + dur > HOURS_ALL.length) return true;
       return false;
     });
@@ -180,7 +197,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
 
   const handleSave = async () => {
     if (!form.paxNumber) { setError("Please select the number of guests."); return; }
-    if (!form.reservateDate) { setError("Please select a reservation date."); return; }
+    if (!form.reservationDate) { setError("Please select a reservation date."); return; }
     if (!form.reservationTime) { setError("Please select a reservation time."); return; }
     if (!form.depositFee) { setError("Please enter the deposit fee."); return; }
     if (!form.firstName.trim()) { setError("Please enter the customer's first name."); return; }
@@ -195,7 +212,6 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
       return;
     }
 
-    // Double-booking check
     const disabledHours = getDisabledHours();
     if (disabledHours.includes(form.reservationTime)) {
       setError("This time slot is already booked. Please choose another time.");
@@ -205,16 +221,58 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
     setError("");
     setLoading(true);
     try {
-      const data = { ...form, duration: String(duration), fullName: `${form.firstName} ${form.lastName}` };
+      const targetFloorCode = getFloorFromTable(form.tableNumber);
+
+      // Original File Structure: Normalized object architecture mapped perfectly to backend payload schemas
+      const data = {
+        reservationId: form.customerId,
+        tableNumber: form.tableNumber,
+        tableId: `table_${targetFloorCode}_${form.tableNumber}`,
+        floor: targetFloorCode,
+        paxNumber: parseInt(form.paxNumber) || 1,
+        reservationDate: form.reservationDate,
+        reservationTime: form.reservationTime,
+        checkIn: form.reservationTime,
+        checkOut: "",
+        duration: String(duration),
+        depositFee: parseFloat(form.depositFee) || 0,
+        status: form.status.toLowerCase().trim(),
+        customer: {
+          title: form.title,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phoneNumber,
+          email: form.emailAddress,
+        },
+        customerId: form.customerId,
+        paymentMethod: form.paymentMethod,
+        cardNumber: "**** **** 4545 4545",
+      };
+
       if (isEdit) {
         await updateDoc(doc(db, "reservations", reservation.id), data);
       } else {
-        await addDoc(collection(db, "reservations"), data);
+        await addDoc(collection(db, "reservations"), {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // Original File Structure: Pushes automatic notification alerts synchronously
+        await addDoc(collection(db, "notifications"), {
+          title: "New Reservation",
+          message: `Table ${data.tableNumber} reserved for ${data.customer.firstName} ${data.customer.lastName} at ${data.reservationTime}`,
+          type: "reservation",
+          read: false,
+          createdAt: serverTimestamp(),
+        });
       }
+
       onSaved?.();
       onClose();
     } catch (err) {
-      console.error(err);
+      console.error("Error saving reservation:", err);
+      setError("Failed to save: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -225,7 +283,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
   const tableOptions = (FLOOR_TABLES[form.floor] || []).map((t) => ({ value: t, label: t }));
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end items-stretch bg-black/60">
+    <div className="fixed inset-0 z-50 flex justify-end items-stretch bg-black/60 backdrop-blur-sm">
       <div className="bg-[#1a1a1a] w-full max-w-2xl min-h-screen overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/10">
           <h2 className="text-white text-xl font-semibold">{isEdit ? "Edit Reservation" : "Add New Reservation"}</h2>
@@ -240,7 +298,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
               <CustomSelect label="Floor" value={form.floor} onChange={(val) => handleChange("floor", val)} options={FLOORS.map((f) => ({ value: f, label: f }))} />
               <CustomSelect label="Table Number" value={form.tableNumber} onChange={(val) => handleChange("tableNumber", val)} options={tableOptions} />
               <CustomSelect label="No of Guests" value={form.paxNumber} onChange={(val) => handleChange("paxNumber", val)} options={GUEST_OPTIONS} placeholder="Select guests" />
-              <DatePicker value={form.reservateDate} onChange={(val) => handleChange("reservateDate", val)} />
+              <DatePicker value={form.reservationDate} onChange={(val) => handleChange("reservationDate", val)} />
               <CustomTimePicker label="Reservation Time" value={form.reservationTime} onChange={(val) => handleChange("reservationTime", val)} disabledHours={getDisabledHours()} />
               <CustomSelect label="Duration" value={form.duration} onChange={(val) => handleChange("duration", val)} options={DURATION_OPTIONS} />
               <div>
@@ -304,7 +362,7 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
                 <span className="text-white text-sm font-medium">{form.customerId}</span>
               </div>
               <div className="bg-[#2a2a2a] rounded-xl px-4 py-3 border border-white/10">
-                <CustomSelect label="" value={form.paymentMethod} onChange={(val) => handleChange("paymentMethod", val)} options={PAYMENT_METHODS} />
+                <CustomSelect label="Payment Method" value={form.paymentMethod} onChange={(val) => handleChange("paymentMethod", val)} options={PAYMENT_METHODS} />
               </div>
             </div>
           </div>
@@ -314,8 +372,8 @@ export default function AddReservationModal({ isOpen, onClose, reservation = nul
           )}
 
           <div className="flex items-center justify-end gap-4 pt-2">
-            <button onClick={onClose} className="text-white/60 text-sm underline hover:text-white transition">Cancel</button>
-            <button onClick={handleSave} disabled={loading}
+            <button type="button" onClick={onClose} className="text-white/60 text-sm underline hover:text-white transition">Cancel</button>
+            <button type="button" onClick={handleSave} disabled={loading}
               className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-8 py-3 rounded-xl transition disabled:opacity-50">
               {loading ? "Saving..." : "Save"}
             </button>
