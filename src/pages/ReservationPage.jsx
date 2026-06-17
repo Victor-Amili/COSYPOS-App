@@ -15,12 +15,19 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function toYMD(date) {
-  return date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getDateLabel(dateStr) {
   const today = toYMD(new Date());
-  const tomorrow = toYMD(new Date(Date.now() + 86400000));
+  
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = toYMD(tomorrowDate);
+  
   if (dateStr === today) return "Today";
   if (dateStr === tomorrow) return "Tomorrow";
   const d = new Date(dateStr + "T00:00:00");
@@ -94,6 +101,7 @@ function DatePicker({ value, onChange }) {
               return (
                 <button
                   key={day}
+                  type="button"
                   onClick={() => selectDay(day)}
                   className={`w-full aspect-square rounded-lg text-xs font-medium transition flex items-center justify-center
                     ${isSelected ? "bg-brand text-gray-800" : isToday ? "border border-brand/50 text-brand" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
@@ -110,7 +118,7 @@ function DatePicker({ value, onChange }) {
               className="flex-1 py-1.5 rounded-lg text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition">
               Today
             </button>
-            <button onClick={() => { onChange(toYMD(new Date(Date.now() + 86400000))); setOpen(false); }}
+            <button onClick={() => { const tmw = new Date(); tmw.setDate(tmw.getDate() + 1); onChange(toYMD(tmw)); setOpen(false); }}
               className="flex-1 py-1.5 rounded-lg text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition">
               Tomorrow
             </button>
