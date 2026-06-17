@@ -230,34 +230,37 @@ function Orders() {
                             key={order.id}
                             className="bg-[#1e1e1e] rounded-2xl p-4 sm:p-5 border border-white/5"
                         >
-                            {/* Card Header */}
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-[#F5C6CC]/20 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-sm font-bold text-[#F5C6CC]">
+                            <div className="flex items-start justify-between mb-3 md:mb-4 gap-2">
+                                <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-[#F5C6CC]/20 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-xs md:text-sm font-bold text-[#F5C6CC]">
                                             {order.tableNumber}
                                         </span>
                                     </div>
-                                    <div className="min-w-0">
-                                        <h3 className="text-sm font-semibold text-white truncate">
+
+                                   
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-xs md:text-sm font-semibold text-white truncate leading-tight">
                                             {order.customerName}
                                         </h3>
-                                        <p className="text-xs text-gray-500">
-                                            Order # {order.orderNumber}
+                                        <p className="text-[10px] md:text-xs text-gray-500 leading-tight">
+                                            #{order.orderNumber?.slice(-4) || order.id?.slice(-4)}
                                         </p>
                                     </div>
                                 </div>
+
                                 <div
-                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${getStatusBadgeStyle(
+                                    className={`flex items-center gap-1 px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-medium border flex-shrink-0 ${getStatusBadgeStyle(
                                         order.status
                                     )}`}
                                 >
                                     <span
-                                        className={`w-1.5 h-1.5 rounded-full ${getStatusDot(
+                                        className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${getStatusDot(
                                             order.status
                                         )}`}
                                     />
-                                    {order.statusText}
+                                    <span className="hidden sm:inline">{order.statusText}</span>
+                                    <span className="sm:hidden">{order.statusText?.slice(0, 6) || "..."}</span>
                                 </div>
                             </div>
 

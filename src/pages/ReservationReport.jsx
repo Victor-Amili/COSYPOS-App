@@ -92,7 +92,9 @@ export default function ReservationReport() {
     }).replace(/\//g, ". ") : "—",
     checkIn: r.checkIn || r.reservationTime || "—",
     checkOut: r.checkOut || "—",
-    total: r.depositFee ? `$${r.depositFee.toFixed(2)}` : "—",
+    total: r.depositFee && !isNaN(parseFloat(r.depositFee))
+      ? `$${parseFloat(r.depositFee).toFixed(2)}`
+      : "—",
   }))
 
   const tabRoutes = {
