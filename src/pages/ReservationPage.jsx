@@ -10,7 +10,7 @@ const FLOOR_TABLES = {
   "2nd Floor": ["D1", "D2", "D3", "E1", "E2", "F1", "F2"],
   "3rd Floor": ["G1", "G2", "H1", "H2", "H3"],
 };
-const HOURS = Array.from({ length: 13 }, (_, i) => `${(i + 9).toString().padStart(2, "0")}:00`);
+const HOURS = Array.from({ length: 15 }, (_, i) => `${(i + 9).toString().padStart(2, "0")}:00`);
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -175,25 +175,25 @@ export default function ReservationPage() {
 
   const tables = FLOOR_TABLES[activeFloor];
 
+  // Original File Structure: Query filtering criteria maps precisely to matching requirements
   const getReservationsForCellRaw = (table, hour) => {
     return reservations.filter((r) => {
       const rHour = r.reservationTime?.slice(0, 2);
+      const rDate = r.reservationDate || r.reservateDate;
       return (
         r.tableNumber === table &&
         rHour === hour.slice(0, 2) &&
-        r.floor === activeFloor &&
-        r.reservateDate === selectedDate
+        r.floor === activeFloor.replace(" Floor", "") &&
+        rDate === selectedDate
       );
     });
   };
 
-  // Returns reservation that STARTS at this hour (for rendering the spanning card)
   const getReservationsForCell = (table, hour) => getReservationsForCellRaw(table, hour);
 
-  // Returns true if this hour is covered by a reservation that started earlier (so we skip rendering the empty cell)
   const isCoveredByEarlierReservation = (table, hourIdx) => {
     return reservations.some((r) => {
-      if (r.tableNumber !== table || r.floor !== activeFloor || r.reservateDate !== selectedDate) return false;
+      if (r.tableNumber !== table || r.floor !== activeFloor.replace(" Floor", "") || (r.reservationDate !== selectedDate && r.reservateDate !== selectedDate)) return false;
       const rStartIdx = HOURS.findIndex((h) => h.slice(0, 2) === r.reservationTime?.slice(0, 2));
       const duration = parseInt(r.duration || "1", 10);
       return rStartIdx !== -1 && hourIdx > rStartIdx && hourIdx < rStartIdx + duration;
@@ -244,9 +244,7 @@ export default function ReservationPage() {
               key={floor}
               onClick={() => setActiveFloor(floor)}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition ${
-                activeFloor === floor
-                  ? "bg-brand text-gray-800"
-                  : "text-white/50 hover:text-white"
+                activeFloor === floor ? "bg-brand text-gray-800" : "text-white/50 hover:text-white"
               }`}
             >
               {floor}
@@ -265,7 +263,7 @@ export default function ReservationPage() {
         </div>
       </div>
 
-      {/* Timeline Grid - Desktop */}
+      {/* Timeline Grid - Desktop Layout (Preserved 15 Hours config) */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-white/5 [&::-webkit-scrollbar]:h-0 [scrollbar-width:none]">
         <div className="min-w-[1100px]">
           {/* Time Header */}
@@ -293,7 +291,6 @@ export default function ReservationPage() {
                 const inDrag = isCellInDragRange(table, hourIdx);
 
                 if (covered) {
-                  // Render an empty placeholder (spanned card covers this visually via overflow)
                   return <div key={hour} className="flex-1 min-w-0 border-l border-white/5 p-1 relative pointer-events-none" />;
                 }
 
@@ -314,10 +311,12 @@ export default function ReservationPage() {
                           onClick={(e) => { e.stopPropagation(); navigate(`/reservation/${res.id}`); }}
                           style={{ width: `calc(${widthPct}% + ${(duration - 1) * 0}px)` }}
                           className={`h-full min-h-[60px] min-w-0 rounded-lg p-2 cursor-pointer transition hover:opacity-90 overflow-hidden absolute left-1 top-1 bottom-1 z-10 ${
-                            res.status === "Confirmed" ? "bg-brand/30 border border-brand/40" : "bg-white/10 border border-white/20"
+                            res.status?.toLowerCase().trim() === "confirmed" ? "bg-brand/30 border border-brand/40" : "bg-white/10 border border-white/20"
                           }`}
                         >
-                          <p className="text-white text-xs font-medium truncate min-w-0">{res.fullName || `${res.firstName} ${res.lastName}`}</p>
+                          <p className="text-white text-xs font-medium truncate min-w-0">
+                            {res.customer ? `${res.customer.firstName} ${res.customer.lastName}` : (res.fullName || "Unknown")}
+                          </p>
                           <div className="flex items-center gap-1 mt-1">
                             <svg className="w-3 h-3 text-white/50 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20H7m10 0a2 2 0 002-2v-1a5 5 0 00-10 0v1a2 2 0 002 2m10 0V10M7 20V10m0 0a5 5 0 0110 0" />
@@ -339,7 +338,7 @@ export default function ReservationPage() {
         </div>
       </div>
 
-      {/* Reservation List - Mobile */}
+      {/* Reservation List - Mobile Layout */}
       <div className="md:hidden space-y-3">
         {tables.map((table) => {
           const tableReservations = HOURS.flatMap((hour) => getReservationsForCell(table, hour));
@@ -353,7 +352,7 @@ export default function ReservationPage() {
 
               {tableReservations.length === 0 ? (
                 <button
-                  onClick={() => handleCellClick(table, HOURS[0])}
+                  onClick={() => handleCellClick(table, HOURS[0], 0)}
                   className="w-full px-4 py-4 text-center text-white/30 text-sm hover:bg-white/5 transition"
                 >
                   + Add reservation for this table
@@ -367,7 +366,9 @@ export default function ReservationPage() {
                       className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition"
                     >
                       <div>
-                        <p className="text-white text-sm font-medium">{res.fullName || `${res.firstName} ${res.lastName}`}</p>
+                        <p className="text-white text-sm font-medium">
+                          {res.customer ? `${res.customer.firstName} ${res.customer.lastName}` : (res.fullName || "Unknown")}
+                        </p>
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-white/40 text-xs">{res.reservationTime}</span>
                           <div className="flex items-center gap-1">
@@ -379,9 +380,9 @@ export default function ReservationPage() {
                         </div>
                       </div>
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${
-                        res.status === "Confirmed" ? "bg-brand/20 text-brand" : "bg-white/10 text-white/60"
+                        res.status?.toLowerCase().trim() === "confirmed" ? "bg-brand/20 text-brand" : "bg-white/10 text-white/60"
                       }`}>
-                        {res.status}
+                        {res.status || "Pending"}
                       </span>
                     </div>
                   ))}
