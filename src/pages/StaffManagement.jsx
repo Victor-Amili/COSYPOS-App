@@ -2,7 +2,9 @@ import { useState, useEffect } from "react"
 import { FiEye, FiEdit2, FiTrash2, FiChevronDown } from "react-icons/fi"
 import { useNavigate, useLocation } from "react-router-dom"
 import { db } from "../firebase/config"
-import { collection, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, onSnapshot, doc, deleteDoc, addDoc, setDoc, serverTimestamp } from "firebase/firestore"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase/config";
 
 function StaffManagement() {
     const navigate = useNavigate()
@@ -13,6 +15,7 @@ function StaffManagement() {
     const [formData, setFormData] = useState({
         fullName: "",
         email: "",
+        password: "",
         role: "",
         phone: "",
         salary: "",
@@ -20,7 +23,8 @@ function StaffManagement() {
         timings: "",
         address: "",
         additionalDetails: "",
-        avatar: ""
+        avatar: "",
+        adminPassword: ""
     })
 
     useEffect(() => {
@@ -61,44 +65,100 @@ function StaffManagement() {
         }
     }
 
-    // Add new staff to Firebase
-    const handleAddStaff = async () => {
-        if (!formData.fullName || !formData.email || !formData.role) {
-            alert("Please fill in required fields: Name, Email, Role")
-            return
+const handleAddStaff = async () => {
+    // Validate all required fields
+    if (!formData.fullName || !formData.email || !formData.password || !formData.role || !formData.adminPassword) {
+        alert("Please fill in: Name, Email, Staff Password, Role, Your Admin Password")
+        return
+    }
+
+    // 🔥 CAPTURE ADMIN EMAIL BEFORE WE GET LOGGED OUT
+    const adminEmail = auth.currentUser?.email;
+
+    try {
+        // 1. Create Firebase Auth user → gets uid
+        // ⚠️ THIS LOGS OUT ADMIN AND LOGS IN NEW STAFF
+        const userCredential = await createUserWithEmailAndPassword(
+            auth, 
+            formData.email, 
+            formData.password
+        );
+        const { uid } = userCredential.user;
+
+        // 2. Create Firestore document WITH SAME UID as document ID
+        await setDoc(doc(db, "users", uid), {
+            uid: uid,
+            fullName: formData.fullName,
+            email: formData.email,
+            role: formData.role,
+            phone: formData.phone,
+            salary: parseFloat(formData.salary) || 0,
+            dateOfBirth: formData.dateOfBirth,
+            timings: formData.timings,
+            address: formData.address,
+            additionalDetails: formData.additionalDetails,
+            avatar: formData.avatar || "",
+            permissions: {
+                dashboard: true,
+                reports: formData.role === "Manager" || formData.role === "Admin",
+                inventory: true,
+                orders: true,
+                customers: true,
+                settings: formData.role === "Manager" || formData.role === "Admin"
+            },
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+
+        // 3. Create notification
+        await addDoc(collection(db, "notifications"), {
+            title: "New Staff Added",
+            message: `${formData.fullName} joined as ${formData.role}`,
+            type: "staff",
+            read: false,
+            createdAt: serverTimestamp(),
+        });
+
+        // 4. Reset form and close modal
+        setIsModalOpen(false);
+        setFormData({
+            fullName: "", email: "", password: "", adminPassword: "", role: "", phone: "", salary: "",
+            dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
+        });
+
+        // 5. 🔥 RE-LOGIN AS ADMIN
+        // createUserWithEmailAndPassword logged us out, so we log back in
+        if (adminEmail && formData.adminPassword) {
+            try {
+                await signInWithEmailAndPassword(auth, adminEmail, formData.adminPassword);
+                console.log("✅ Admin re-logged in successfully");
+            } catch (reloginErr) {
+                console.error("❌ Admin re-login failed:", reloginErr);
+                alert("Staff created, but admin session lost. Please log in again.");
+                // Optional: redirect to login
+                // navigate("/");
+                return;
+            }
         }
-        try {
-            await addDoc(collection(db, "users"), {
-                ...formData,
-                salary: parseFloat(formData.salary) || 0,
-                permissions: {
-                    dashboard: true,
-                    reports: formData.role === "Manager" || formData.role === "Admin",
-                    inventory: true,
-                    orders: true,
-                    customers: true,
-                    settings: formData.role === "Manager" || formData.role === "Admin"
-                },
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            })
-            await addDoc(collection(db, "notifications"), {
-                title: "New Staff Added",
-                message: `${formData.fullName} joined as ${formData.role}`,
-                type: "staff",
-                read: false,
-                createdAt: serverTimestamp(),
-            });
-            setIsModalOpen(false)
-            setFormData({
-                fullName: "", email: "", role: "", phone: "", salary: "",
-                dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
-            })
-        } catch (error) {
-            console.error("Add error:", error)
-            alert("Failed to add staff")
+
+        alert(`✅ Staff created successfully!\nEmail: ${formData.email}\nPassword: ${formData.password}`);
+
+    } catch (error) {
+        console.error("Add error:", error);
+        alert("Failed to add staff: " + error.message);
+        
+        // 🔥 TRY TO RE-LOGIN ADMIN EVEN ON ERROR
+        if (adminEmail && formData.adminPassword) {
+            try {
+                await signInWithEmailAndPassword(auth, adminEmail, formData.adminPassword);
+                console.log("✅ Admin re-logged in after error");
+            } catch (reloginErr) {
+                console.error("❌ Failed to re-login admin after error:", reloginErr);
+                alert("Admin session lost. Please log in again.");
+            }
         }
     }
+};
 
     return (
         <div className="space-y-6">
@@ -330,6 +390,24 @@ function StaffManagement() {
                                     value={formData.email}
                                     onChange={handleInputChange}
                                     placeholder="Email"
+                                    className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
+                                />
+
+                                <input
+                                    name="password"
+                                    type="password"
+                                    value={formData.password || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="Initial Password"
+                                    className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
+                                />
+
+                                <input
+                                    name="adminPassword"
+                                    type="password"
+                                    value={formData.adminPassword || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="Your Admin Password (for re-login)"
                                     className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
                                 />
 

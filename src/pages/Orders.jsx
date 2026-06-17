@@ -885,12 +885,47 @@ function PaymentModal({ order, onClose }) {
         printWindow.print();
     };
 
-    const handlePay = () => {
-        setPaid(true);
-        setTimeout(() => {
-            setPaid(false);
-            onClose();
-        }, 4000);
+    const handlePay = async () => {
+        try {
+            // 1. Update the order in Firebase
+            await updateDoc(doc(db, "orders", order.id), {
+                status: "completed",
+                statusText: "Paid",
+                paymentStatus: "paid",
+                paymentMethod: paymentMethod,
+                tip: tipAmount,
+                total: total,
+                paidAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            // 2. Create notification for staff
+            try {
+                await addDoc(collection(db, "notifications"), {
+                    title: "Payment Received",
+                    message: `Table ${order.tableNumber} paid $${total.toFixed(2)} via ${paymentMethod}`,
+                    type: "order",
+                    read: false,
+                    orderId: order.id,
+                    tableNumber: order.tableNumber,
+                    amount: total,
+                    createdAt: serverTimestamp(),
+                });
+            } catch (notifErr) {
+                console.warn("Notification failed (non-critical):", notifErr.message);
+            }
+
+            // 3. Show success screen
+            setPaid(true);
+            setTimeout(() => {
+                setPaid(false);
+                onClose();
+            }, 4000);
+
+        } catch (err) {
+            console.error("Payment failed:", err);
+            alert("Payment failed to save: " + err.message);
+        }
     };
 
     // SUCCESS SCREEN

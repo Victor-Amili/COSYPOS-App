@@ -120,7 +120,7 @@ function Navbar({ setSidebarOpen }) {
                     text-[#7D5B67] text-[10px]
                     flex items-center justify-center font-bold"
                         >
-                            {unreadCount > 99 ? "99+" : unreadCount};
+                            {unreadCount > 99 ? "99+" : unreadCount}
                         </div>
                     )}
                 </div>
