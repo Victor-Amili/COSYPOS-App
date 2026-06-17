@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom"
 import { FiUser, FiSettings, FiLogOut, FiEdit2 } from "react-icons/fi"
 import { Eye, EyeOff } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
-import { updateUserProfile, updateUserPassword } from "../services/authService"
 import ManageAccess, { AddUserPanel } from "./ManageAccess"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import { storage } from "../firebase/config"
+import { storage, db } from "../firebase/config"
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
 
 function Profile() {
     const { user, logout } = useAuth()
@@ -106,11 +106,12 @@ function Profile() {
                 avatarUrl = await getDownloadURL(storageRef)
             }
 
-            await updateUserProfile(user.uid, {
+            await updateDoc(doc(db, "users", user.uid), {
                 fullName: formData.fullName,
                 email: formData.email,
                 address: formData.address,
                 avatar: avatarUrl,
+                updatedAt: serverTimestamp(),
             })
 
             if (formData.newPassword) {
