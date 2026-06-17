@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import { useNavigate } from "react-router-dom"
 import { db } from "../firebase/config"
 import { collection, onSnapshot, query, where } from "firebase/firestore"
@@ -14,8 +16,6 @@ import {
   ResponsiveContainer,
 } from "recharts"
 
-
-
 const tabs = ["Reservation Report", "Revenue Report", "Staff Report"]
 const filterTabs = ["Present", "Half Shift", "Absent", "Leave"]
 const lineColors = {
@@ -26,8 +26,11 @@ const lineColors = {
 }
 
 export default function StaffReport() {
-  const [activeTab]                     = useState("Staff Report")
+  const [activeTab] = useState("Staff Report")
   const [activeFilter, setActiveFilter] = useState("Confirmed")
+  const [startDate, setStartDate] = useState("2024-04-01")
+  const [endDate, setEndDate] = useState("2024-04-08")
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const navigate = useNavigate()
 
   const [users, setUsers] = useState([])
@@ -39,11 +42,11 @@ export default function StaffReport() {
     const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
       setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     })
-    
+
     // Fetch attendance for current month
     const today = new Date().toISOString().split("T")[0]
     const monthStart = today.slice(0, 7) + "-01"  // "2026-06-01"
-    
+
     const q = query(
       collection(db, "attendance"),
       where("date", ">=", monthStart)
@@ -52,7 +55,7 @@ export default function StaffReport() {
       setAttendanceRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setLoading(false)
     })
-    
+
     return () => {
       unsubUsers()
       unsubAttendance()
@@ -80,7 +83,7 @@ export default function StaffReport() {
       const date = new Date(a.date + "T00:00:00")
       return date.getMonth() === i
     })
-    
+
     return {
       month,
       confirmed: monthAttendance.filter(a => a.status === "Present").length,
@@ -122,6 +125,18 @@ export default function StaffReport() {
     "Staff Report":       "/staff-report",
   }
 
+  // ─── PDF Export ──────────────────────────────────────────────────────────
+  const handleGenerateReport = () => {
+    const doc = new jsPDF()
+    doc.text("Staff Report", 14, 15)
+    autoTable(doc, {
+      startY: 22,
+      head: [["Staff ID", "Staff Name", "Phone Number", "Shift Date", "Check In", "Check Out", "Today's Status"]],
+      body: tableData.map(row => [row.id, row.name, row.phone, row.date, row.checkIn, row.checkOut, row.total]),
+    })
+    doc.save("staff-report.pdf")
+  }
+
   return (
     <div className="text-white min-h-screen">
 
@@ -148,11 +163,29 @@ export default function StaffReport() {
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex items-center gap-2 bg-[#1d1d1d] px-4 py-2 rounded-lg text-sm text-gray-300">
-          <span>📅</span>
-          <span>01/04/2024 — 08/04/2024</span>
+
+        {/* Date Range */}
+        <div className="relative">
+          <div
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="flex items-center gap-2 bg-[#1d1d1d] px-4 py-2 rounded-lg text-sm text-gray-300 cursor-pointer"
+          >
+            <span>📅</span>
+            <span>{startDate} — {endDate}</span>
+          </div>
+          {showDatePicker && (
+            <div className="absolute top-12 right-0 bg-[#1d1d1d] p-4 rounded-lg shadow-lg z-10 flex flex-col gap-2">
+              <label className="text-xs text-gray-400">Start Date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-[#2d2d2d] text-white px-2 py-1 rounded" />
+              <label className="text-xs text-gray-400">End Date</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-[#2d2d2d] text-white px-2 py-1 rounded" />
+              <button onClick={() => setShowDatePicker(false)} className="mt-2 bg-[#F5C6CC] text-[#7D5B67] px-3 py-1 rounded text-xs font-semibold">Apply</button>
+            </div>
+          )}
         </div>
-        <button className="bg-[#F5C6CC] text-[#7D5B67] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all">
+
+        {/* Generate Report */}
+        <button onClick={handleGenerateReport} className="bg-[#F5C6CC] text-[#7D5B67] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all">
           Generate Report
         </button>
       </div>
@@ -161,7 +194,7 @@ export default function StaffReport() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
 
         {/* Donut Chart */}
-        <div  id="staff-donut-chart" className="bg-[#1d1d1d] rounded-2xl p-5">
+        <div id="staff-donut-chart" className="bg-[#1d1d1d] rounded-2xl p-5">
           <h2 className="text-base font-semibold mb-4">Total Staff</h2>
           <div className="flex items-center justify-center gap-6">
             <div className="relative">

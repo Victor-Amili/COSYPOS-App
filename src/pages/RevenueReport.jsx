@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import { useNavigate } from "react-router-dom"
 import { db } from "../firebase/config"
 import { collection, onSnapshot } from "firebase/firestore"
@@ -28,8 +30,11 @@ const lineColors = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RevenueReport() {
-  const [activeTab]       = useState("Revenue Report")
+  const [activeTab] = useState("Revenue Report")
   const [activeFilter, setActiveFilter] = useState("Confirmed")
+  const [startDate, setStartDate] = useState("2024-04-01")
+  const [endDate, setEndDate] = useState("2024-04-08")
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const navigate = useNavigate()
 
   const [orders, setOrders] = useState([])
@@ -54,25 +59,25 @@ export default function RevenueReport() {
   // Compute pie data: revenue by status
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0)
   const pieData = [
-    { 
-      name: "Completed", 
-      value: orders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0), 
-      color: "#e75480" 
+    {
+      name: "Completed",
+      value: orders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0),
+      color: "#e75480"
     },
-    { 
-      name: "In Process", 
-      value: orders.filter(o => o.status === "in-process").reduce((sum, o) => sum + (o.total || 0), 0), 
-      color: "#c084a0" 
+    {
+      name: "In Process",
+      value: orders.filter(o => o.status === "in-process").reduce((sum, o) => sum + (o.total || 0), 0),
+      color: "#c084a0"
     },
-    { 
-      name: "Pending", 
-      value: orders.filter(o => o.status === "pending").reduce((sum, o) => sum + (o.total || 0), 0), 
-      color: "#7d3f5a" 
+    {
+      name: "Pending",
+      value: orders.filter(o => o.status === "pending").reduce((sum, o) => sum + (o.total || 0), 0),
+      color: "#7d3f5a"
     },
-    { 
-      name: "Cancelled", 
-      value: orders.filter(o => o.status === "cancelled").reduce((sum, o) => sum + (o.total || 0), 0), 
-      color: "#f9a8c9" 
+    {
+      name: "Cancelled",
+      value: orders.filter(o => o.status === "cancelled").reduce((sum, o) => sum + (o.total || 0), 0),
+      color: "#f9a8c9"
     },
   ]
 
@@ -84,7 +89,7 @@ export default function RevenueReport() {
       const date = new Date(o.date + "T00:00:00")
       return date.getMonth() === i
     })
-    
+
     return {
       month,
       confirmed: monthOrders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0),
@@ -95,7 +100,6 @@ export default function RevenueReport() {
   })
 
   // Compute table data: top selling products
-  // Count product sales from orders
   const productSales = {}
   orders.forEach(o => {
     (o.items || []).forEach(item => {
@@ -118,7 +122,7 @@ export default function RevenueReport() {
     const sellPrice = product?.price || 0
     const profit = p.revenue - (costPrice * p.qty)
     const margin = sellPrice > 0 ? ((profit / (sellPrice * p.qty)) * 100).toFixed(2) : "0.00"
-    
+
     return {
       sNo: String(i + 1).padStart(2, "0"),
       food: p.name,
@@ -138,6 +142,18 @@ export default function RevenueReport() {
     "Reservation Report": "/reports",
     "Revenue Report": "/revenue-report",
     "Staff Report": "/staff-report",
+  }
+
+  // ─── PDF Export ──────────────────────────────────────────────────────────
+  const handleGenerateReport = () => {
+    const doc = new jsPDF()
+    doc.text("Revenue Report", 14, 15)
+    autoTable(doc, {
+      startY: 22,
+      head: [["S.No", "Top Selling Food", "Date", "Sell Price", "Profit", "Margin", "Total Revenue"]],
+      body: tableData.map(row => [row.sNo, row.food, row.date, row.sellPrice, row.profit, row.margin, row.total]),
+    })
+    doc.save("revenue-report.pdf")
   }
 
   return (
@@ -166,11 +182,29 @@ export default function RevenueReport() {
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex items-center gap-2 bg-[#1d1d1d] px-4 py-2 rounded-lg text-sm text-gray-300">
-          <span>📅</span>
-          <span>01/04/2024 — 08/04/2024</span>
+
+        {/* Date Range */}
+        <div className="relative">
+          <div
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="flex items-center gap-2 bg-[#1d1d1d] px-4 py-2 rounded-lg text-sm text-gray-300 cursor-pointer"
+          >
+            <span>📅</span>
+            <span>{startDate} — {endDate}</span>
+          </div>
+          {showDatePicker && (
+            <div className="absolute top-12 right-0 bg-[#1d1d1d] p-4 rounded-lg shadow-lg z-10 flex flex-col gap-2">
+              <label className="text-xs text-gray-400">Start Date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-[#2d2d2d] text-white px-2 py-1 rounded" />
+              <label className="text-xs text-gray-400">End Date</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-[#2d2d2d] text-white px-2 py-1 rounded" />
+              <button onClick={() => setShowDatePicker(false)} className="mt-2 bg-[#F5C6CC] text-[#7D5B67] px-3 py-1 rounded text-xs font-semibold">Apply</button>
+            </div>
+          )}
         </div>
-        <button className="bg-[#F5C6CC] text-[#7D5B67] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all">
+
+        {/* Generate Report */}
+        <button onClick={handleGenerateReport} className="bg-[#F5C6CC] text-[#7D5B67] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all">
           Generate Report
         </button>
       </div>
@@ -268,22 +302,22 @@ export default function RevenueReport() {
                     <div className="text-xs text-[#F5C6CC]">Top Selling Food</div>
                     <div className="text-white">{row.food}</div>
                   </td>
-                  
+
                   <td className="px-4 py-3">
                     <div className="text-xs text-[#F5C6CC]">Revenue By Date</div>
                     <div className="text-white">{row.date}</div>
                   </td>
-                  
+
                   <td className="px-4 py-3">
                     <div className="text-xs text-[#F5C6CC]">Sell Price</div>
                     <div className="text-white">{row.sellPrice}</div>
                   </td>
-                  
+
                   <td className="px-4 py-3">
                     <div className="text-xs text-[#F5C6CC]">Profit</div>
                     <div className="text-white">{row.profit}</div>
                   </td>
-                  
+
                   <td className="px-4 py-3">
                     <div className="text-xs text-[#F5C6CC]">Profit Margin</div>
                     <div className="text-white">{row.margin}</div>
