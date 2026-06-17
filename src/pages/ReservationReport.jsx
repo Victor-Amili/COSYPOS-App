@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import { db } from "../firebase/config"
 import { collection, onSnapshot } from "firebase/firestore"
 import { useNavigate } from "react-router-dom"
@@ -99,8 +101,20 @@ export default function ReservationReport() {
     "Revenue Report": "/revenue-report",
     "Staff Report": "/staff-report",
   }
-  const [startDate] = useState("01/04/2024")
-  const [endDate] = useState("08/04/2024")
+const [startDate, setStartDate] = useState("2024-04-01")
+const [endDate, setEndDate] = useState("2024-04-08")
+const [showDatePicker, setShowDatePicker] = useState(false)
+
+const handleGenerateReport = () => {
+  const doc = new jsPDF()
+  doc.text("Reservation Report", 14, 15)
+  autoTable(doc, {
+    startY: 22,
+    head: [["ID", "Name", "Phone", "Date", "Check In", "Check Out", "Total"]],
+    body: tableData.map(row => [row.id, row.name, row.phone, row.date, row.checkIn, row.checkOut, row.total]),
+  })
+  doc.save("reservation-report.pdf")
+}
 
   return (
     <div className="text-white min-h-screen">
@@ -136,15 +150,30 @@ export default function ReservationReport() {
         <div className="flex-1" />
 
         {/* Date Range */}
-        <div className="flex items-center gap-2 bg-[#1d1d1d] px-4 py-2 rounded-lg text-sm text-gray-300">
-          <span>📅</span>
-          <span>{startDate} — {endDate}</span>
-        </div>
+<div className="relative">
+  <div
+    onClick={() => setShowDatePicker(!showDatePicker)}
+    className="flex items-center gap-2 bg-[#1d1d1d] px-4 py-2 rounded-lg text-sm text-gray-300 cursor-pointer"
+  >
+    <span>📅</span>
+    <span>{startDate} — {endDate}</span>
+  </div>
+  {showDatePicker && (
+    <div className="absolute top-12 right-0 bg-[#1d1d1d] p-4 rounded-lg shadow-lg z-10 flex flex-col gap-2">
+      <label className="text-xs text-gray-400">Start Date</label>
+      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-[#2d2d2d] text-white px-2 py-1 rounded" />
+      <label className="text-xs text-gray-400">End Date</label>
+      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-[#2d2d2d] text-white px-2 py-1 rounded" />
+      <button onClick={() => setShowDatePicker(false)} className="mt-2 bg-[#F5C6CC] text-[#7D5B67] px-3 py-1 rounded text-xs font-semibold">Apply</button>
+    </div>
+  )}
+</div>
 
         {/* Generate Report */}
-        <button className="bg-[#F5C6CC] text-[#7D5B67] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all">
-          Generate Report
-        </button>
+        <button onClick={handleGenerateReport} className="bg-[#F5C6CC] text-[#7D5B67] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all">
+  Generate Report
+</button>
+        
       </div>
 
       {/* Charts Row */}
