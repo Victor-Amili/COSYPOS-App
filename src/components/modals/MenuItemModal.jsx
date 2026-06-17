@@ -96,7 +96,7 @@ export default function MenuItemModal({ isOpen, onClose, item = null, onSaved })
           imageUrl = await getDownloadURL(storageRef);
         } catch (imgErr) {
           console.warn("Storage upload warning, continuing with fallback path:", imgErr);
-        }
+        }``
       }
 
       const generatedItemId = `#${Math.floor(10000000 + Math.random() * 90000000)}`;

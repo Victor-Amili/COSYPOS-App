@@ -4,9 +4,17 @@ import { db } from "../firebase/config"
 import { FiEdit2, FiTrash2, FiCheck, FiX } from "react-icons/fi"
 import { Eye, EyeOff } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
-import { createStaffUser, deleteUserAuth, updateUserPermissions } from "../services/authService"
-import { updateStaffMember } from "../services/userService"
 import CustomSelect from "../components/CustomSelect"
+import {
+    setDoc,
+    doc,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    serverTimestamp
+} from "firebase/firestore"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
+import { auth } from "../firebase/config"
 
 const PERMISSION_KEYS = [
     { key: "dashboard", label: "Dashboard" },
@@ -89,13 +97,72 @@ export function AddUserPanel() {
 
         setAdding(true)
         setFeedback({ type: "", message: "" })
+        const adminEmail = auth.currentUser?.email
         try {
-            await createStaffUser(newUser)
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                newUser.email,
+                newUser.password
+            )
+            const { uid } = userCredential.user
+
+            // 2. Create Firestore document WITH SAME UID as document ID
+            await addDoc(collection(db, "users"), {  // ❌ Wait — use setDoc with uid!
+                // ...
+            })
+
+            // Actually, use setDoc:
+            await setDoc(doc(db, "users", uid), {
+                uid: uid,
+                fullName: newUser.fullName,
+                email: newUser.email,
+                role: newUser.role,
+                permissions: {
+                    dashboard: true,
+                    reports: newUser.role === "manager" || newUser.role === "admin",
+                    inventory: false,
+                    orders: true,
+                    customers: false,
+                    settings: newUser.role === "manager" || newUser.role === "admin",
+                },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            })
+
+            // 3. Create notification
+            await addDoc(collection(db, "notifications"), {
+                title: "New Staff Added",
+                message: `${newUser.fullName} joined as ${newUser.role}`,
+                type: "staff",
+                read: false,
+                createdAt: serverTimestamp(),
+            })
+
+            // 4. Reset form
             setNewUser({ fullName: "", email: "", role: "", password: "" })
             setFeedback({ type: "success", message: "User added successfully." })
+
+            // 5. 🔥 RE-LOGIN AS ADMIN
+            if (adminEmail) {
+                const adminPassword = prompt("Enter your admin password to stay logged in:")
+                if (adminPassword) {
+                    await signInWithEmailAndPassword(auth, adminEmail, adminPassword)
+                }
+            }
+
         } catch (error) {
             console.error("Add user error:", error)
             setFeedback({ type: "error", message: error.message || "Failed to add user." })
+
+            // Try re-login even on error
+            if (adminEmail) {
+                const adminPassword = prompt("Admin session lost. Enter password to re-login:")
+                if (adminPassword) {
+                    try {
+                        await signInWithEmailAndPassword(auth, adminEmail, adminPassword)
+                    } catch (e) { /* ignore */ }
+                }
+            }
         } finally {
             setAdding(false)
         }
@@ -199,7 +266,10 @@ function ManageAccess() {
         const current = { ...DEFAULT_PERMISSIONS, ...targetUser.permissions }
         const updated = { ...current, [key]: !current[key] }
         try {
-            await updateUserPermissions(targetUser.id, updated)
+            await updateDoc(doc(db, "users", targetUser.id), {
+                permissions: updated,
+                updatedAt: serverTimestamp(),
+            })
         } catch (error) {
             console.error("Toggle permission error:", error)
             setFeedback({ type: "error", message: "Failed to update permission." })
@@ -217,7 +287,12 @@ function ManageAccess() {
 
     const saveEdit = async (id) => {
         try {
-            await updateStaffMember(id, editData)
+            await updateDoc(doc(db, "users", id), {
+                fullName: editData.fullName,
+                email: editData.email,
+                role: editData.role,
+                updatedAt: serverTimestamp(),
+            })
             setEditingId(null)
         } catch (error) {
             console.error("Edit user error:", error)
@@ -227,12 +302,22 @@ function ManageAccess() {
 
     const handleDelete = async (targetUser) => {
         if (targetUser.id === user?.uid) return
-        if (!window.confirm(`Remove ${targetUser.fullName}? This deletes their login too.`)) return
+        if (!window.confirm(`Remove ${targetUser.fullName}? This deletes their data.`)) return
         try {
-            await deleteUserAuth(targetUser.id)
+            await deleteDoc(doc(db, "users", targetUser.id))
+
+            // Optional: Create notification
+            await addDoc(collection(db, "notifications"), {
+                title: "Staff Removed",
+                message: `${targetUser.fullName} has been removed`,
+                type: "staff",
+                read: false,
+                createdAt: serverTimestamp(),
+            })
+
         } catch (error) {
             console.error("Delete user error:", error)
-            setFeedback({ type: "error", message: error.message || "Failed to delete user." })
+            setFeedback({ type: "error", message: "Failed to delete user." })
         }
     }
 

@@ -2,7 +2,9 @@ import { useState, useEffect } from "react"
 import { FiEye, FiEdit2, FiTrash2, FiChevronDown } from "react-icons/fi"
 import { useNavigate, useLocation } from "react-router-dom"
 import { db } from "../firebase/config"
-import { collection, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, onSnapshot, doc, deleteDoc, addDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase/config";
 
 function StaffManagement() {
     const navigate = useNavigate()
@@ -13,6 +15,7 @@ function StaffManagement() {
     const [formData, setFormData] = useState({
         fullName: "",
         email: "",
+        password: "",
         role: "",
         phone: "",
         salary: "",
@@ -20,7 +23,7 @@ function StaffManagement() {
         timings: "",
         address: "",
         additionalDetails: "",
-        avatar: ""
+        avatar: "",
     })
 
     useEffect(() => {
@@ -61,16 +64,95 @@ function StaffManagement() {
         }
     }
 
-    // Add new staff to Firebase
-    const handleAddStaff = async () => {
+    const [editingStaff, setEditingStaff] = useState(null)
+
+    const handleEditClick = (staff) => {
+        setEditingStaff(staff)
+        setFormData({
+            fullName: staff.fullName || "",
+            email: staff.email || "",
+            password: "",  // Don't show existing password
+            role: staff.role || "",
+            phone: staff.phone || "",
+            salary: staff.salary || "",
+            dateOfBirth: staff.dateOfBirth || "",
+            timings: staff.timings || "",
+            address: staff.address || "",
+            additionalDetails: staff.additionalDetails || "",
+            avatar: staff.avatar || ""
+        })
+        setIsModalOpen(true)
+    }
+
+    const handleUpdateStaff = async () => {
         if (!formData.fullName || !formData.email || !formData.role) {
             alert("Please fill in required fields: Name, Email, Role")
             return
         }
+
         try {
-            await addDoc(collection(db, "users"), {
-                ...formData,
+            await updateDoc(doc(db, "users", editingStaff.id), {
+                fullName: formData.fullName,
+                email: formData.email,
+                role: formData.role,
+                phone: formData.phone,
                 salary: parseFloat(formData.salary) || 0,
+                dateOfBirth: formData.dateOfBirth,
+                timings: formData.timings,
+                address: formData.address,
+                additionalDetails: formData.additionalDetails,
+                avatar: formData.avatar,
+                updatedAt: serverTimestamp()
+            })
+
+            setIsModalOpen(false)
+            setEditingStaff(null)
+            setFormData({
+                fullName: "", email: "", password: "", role: "", phone: "", salary: "",
+                dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
+            })
+
+            alert("Staff updated successfully!")
+
+        } catch (error) {
+            console.error("Update error:", error)
+            alert("Failed to update staff: " + error.message)
+        }
+    }
+
+    const handleAddStaff = async () => {
+        // Validate all required fields
+        if (!formData.fullName || !formData.email || !formData.password || !formData.role) {
+            alert("Please fill in: Name, Email, Staff Password, Role, Your Admin Password")
+            return
+        }
+
+        // 🔥 CAPTURE ADMIN EMAIL BEFORE WE GET LOGGED OUT
+        const adminEmail = auth.currentUser?.email;
+
+        try {
+            // 1. Create Firebase Auth user → gets uid
+            // ⚠️ THIS LOGS OUT ADMIN AND LOGS IN NEW STAFF
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                formData.email,
+                formData.password
+            );
+            const { uid } = userCredential.user;
+
+            // 2. Create Firestore document WITH SAME UID as document ID
+            await setDoc(doc(db, "users", uid), {
+                uid: uid,
+                fullName: formData.fullName,
+                email: formData.email,
+                role: formData.role,
+                phone: formData.phone,
+                salary: parseFloat(formData.salary) || 0,
+                dateOfBirth: formData.dateOfBirth,
+                timings: formData.timings,
+                address: formData.address,
+                additionalDetails: formData.additionalDetails,
+                avatar: formData.avatar || "",
                 permissions: {
                     dashboard: true,
                     reports: formData.role === "Manager" || formData.role === "Admin",
@@ -81,7 +163,9 @@ function StaffManagement() {
                 },
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
-            })
+            });
+
+            // 3. Create notification
             await addDoc(collection(db, "notifications"), {
                 title: "New Staff Added",
                 message: `${formData.fullName} joined as ${formData.role}`,
@@ -89,16 +173,49 @@ function StaffManagement() {
                 read: false,
                 createdAt: serverTimestamp(),
             });
-            setIsModalOpen(false)
+
+            // 4. Reset form and close modal
+            setIsModalOpen(false);
             setFormData({
-                fullName: "", email: "", role: "", phone: "", salary: "",
+                fullName: "", email: "", password: "", role: "", phone: "", salary: "",
                 dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
-            })
+            });
+
+
+            if (adminEmail) {
+                try {
+                    await signInWithEmailAndPassword(auth, adminEmail, formData.adminPassword);
+                    console.log("✅ Admin re-logged in successfully");
+                } catch (reloginErr) {
+                    console.error("❌ Admin re-login failed:", reloginErr);
+                    alert("Staff created, but admin session lost. Please log in again.");
+                    // Optional: redirect to login
+                    // navigate("/");
+                    return;
+                }
+            }
+
+            alert(`✅ Staff created successfully!\nEmail: ${formData.email}\nPassword: ${formData.password}`);
+
         } catch (error) {
-            console.error("Add error:", error)
-            alert("Failed to add staff")
+            console.error("Add error:", error);
+            alert("Failed to add staff: " + error.message);
+
+            if (adminEmail) {
+                const adminPassword = prompt("Enter your admin password to stay logged in:")
+                if (adminPassword) {
+                    try {
+                        await signInWithEmailAndPassword(auth, adminEmail, adminPassword)
+                        console.log("✅ Admin re-logged in successfully")
+                    } catch (reloginErr) {
+                        console.error("❌ Admin re-login failed:", reloginErr)
+                        alert("Staff created, but admin session lost. Please log in again.")
+                        return
+                    }
+                }
+            }
         }
-    }
+    };
 
     return (
         <div className="space-y-6">
@@ -245,7 +362,9 @@ function StaffManagement() {
                                             }
                                             className="text-white cursor-pointer hover:text-[#F5C6CC]" />
 
-                                        <FiEdit2 className="text-white hover:text-[#F5C6CC] cursor-pointer" />
+                                        <FiEdit2
+                                            onClick={() => handleEditClick(staff)}
+                                            className="text-white hover:text-[#F5C6CC] cursor-pointer" />
 
                                         <FiTrash2
                                             onClick={() => handleDeleteStaff(staff.id)}
@@ -289,7 +408,7 @@ function StaffManagement() {
                         {/* HEADER */}
                         <div className="flex justify-between items-center p-6 border-b border-gray-700">
                             <h2 className="text-white text-2xl font-bold">
-                                Add Staff
+                                {editingStaff ? "Edit Staff" : "Add Staff"}
                             </h2>
 
                             <button
@@ -330,6 +449,15 @@ function StaffManagement() {
                                     value={formData.email}
                                     onChange={handleInputChange}
                                     placeholder="Email"
+                                    className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
+                                />
+
+                                <input
+                                    name="password"
+                                    type="password"
+                                    value={formData.password || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="Initial Password"
                                     className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
                                 />
 
@@ -404,17 +532,24 @@ function StaffManagement() {
                         <div className="flex justify-end gap-4 p-6 border-t border-gray-700">
 
                             <button
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={() => {
+                                    setIsModalOpen(false)
+                                    setEditingStaff(null)
+                                    setFormData({
+                                        fullName: "", email: "", password: "", role: "", phone: "", salary: "",
+                                        dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
+                                    })
+                                }}
                                 className="text-white"
                             >
                                 Cancel
                             </button>
 
                             <button
-                                onClick={handleAddStaff}
+                                onClick={editingStaff ? handleUpdateStaff : handleAddStaff}
                                 className="w-[140px] h-[56px] bg-[#F4C7D7] text-[#0F0F0F] font-semibold rounded-[12px]"
                             >
-                                Confirm
+                                {editingStaff ? "Update" : "Confirm"}
                             </button>
 
                         </div>
