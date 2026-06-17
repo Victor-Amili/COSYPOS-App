@@ -79,40 +79,60 @@ function Dashboard() {
     })
 
     // 3. Fetch popular dishes (one-time, or you could listen)
-    const fetchPopular = async () => {
-      const snap = await getDocs(collection(db, "orders"))
-      const orders = snap.docs.map(d => d.data())
+      const fetchPopular = async () => {
+        // 1. Get all orders to count popularity
+        const ordersSnap = await getDocs(collection(db, "orders"))
+        const orders = ordersSnap.docs.map(d => d.data())
 
-      const dishCounts = {}
-      orders.forEach(o => {
-        o.items?.forEach(item => {
-          if (!dishCounts[item.productId]) {
-            dishCounts[item.productId] = {
-              name: item.name,
-              count: 0,
-              price: item.price,
-              image: item.image || ""
+        // 2. Count how many times each product was ordered
+        const dishCounts = {}
+        orders.forEach(o => {
+          o.items?.forEach(item => {
+            if (!dishCounts[item.productId]) {
+              dishCounts[item.productId] = {
+                productId: item.productId,
+                name: item.name,
+                count: 0,
+                price: item.price,
+                image: ""  // Will fill from products collection below
+              }
             }
-          }
-          dishCounts[item.productId].count += item.qty
+            dishCounts[item.productId].count += item.qty
+          })
         })
-      })
 
-      const sorted = Object.values(dishCounts)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5)
+        // 3. 🔥 GET IMAGES FROM PRODUCTS COLLECTION (the database!)
+        const productsSnap = await getDocs(collection(db, "products"))
+        productsSnap.docs.forEach(d => {
+          const product = d.data()
+          // Match by product ID or name
+          if (dishCounts[d.id] && product.image) {
+            dishCounts[d.id].image = product.image  // ← REAL IMAGE FROM DATABASE
+            dishCounts[d.id].name = product.name || dishCounts[d.id].name
+          }
+          // Also try matching by name if ID doesn't match
+          Object.keys(dishCounts).forEach(pid => {
+            if (dishCounts[pid].name === product.name && product.image) {
+              dishCounts[pid].image = product.image
+            }
+          })
+        })
 
-      setPopularDishes(sorted)
-      setLoading(false)
-    }
+        const sorted = Object.values(dishCounts)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
 
-    fetchPopular()
+        setPopularDishes(sorted)
+        setLoading(false)
+      }
 
-    return () => {
-      unsubOrders()
-      unsubTables()
-    }
-  }, [])
+      fetchPopular()
+
+      return () => {
+        unsubOrders()
+        unsubTables()
+      }
+    }, [])
   return (
     <div className="w-full">
 
