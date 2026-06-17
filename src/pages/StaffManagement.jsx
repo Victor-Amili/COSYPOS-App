@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { FiEye, FiEdit2, FiTrash2, FiChevronDown } from "react-icons/fi"
 import { useNavigate, useLocation } from "react-router-dom"
 import { db } from "../firebase/config"
-import { collection, onSnapshot, doc, deleteDoc, addDoc, setDoc, serverTimestamp } from "firebase/firestore"
+import { collection, onSnapshot, doc, deleteDoc, addDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase/config";
 
@@ -24,7 +24,6 @@ function StaffManagement() {
         address: "",
         additionalDetails: "",
         avatar: "",
-        adminPassword: ""
     })
 
     useEffect(() => {
@@ -65,100 +64,158 @@ function StaffManagement() {
         }
     }
 
-const handleAddStaff = async () => {
-    // Validate all required fields
-    if (!formData.fullName || !formData.email || !formData.password || !formData.role || !formData.adminPassword) {
-        alert("Please fill in: Name, Email, Staff Password, Role, Your Admin Password")
-        return
-    }
+    const [editingStaff, setEditingStaff] = useState(null)
 
-    // 🔥 CAPTURE ADMIN EMAIL BEFORE WE GET LOGGED OUT
-    const adminEmail = auth.currentUser?.email;
-
-    try {
-        // 1. Create Firebase Auth user → gets uid
-        // ⚠️ THIS LOGS OUT ADMIN AND LOGS IN NEW STAFF
-        const userCredential = await createUserWithEmailAndPassword(
-            auth, 
-            formData.email, 
-            formData.password
-        );
-        const { uid } = userCredential.user;
-
-        // 2. Create Firestore document WITH SAME UID as document ID
-        await setDoc(doc(db, "users", uid), {
-            uid: uid,
-            fullName: formData.fullName,
-            email: formData.email,
-            role: formData.role,
-            phone: formData.phone,
-            salary: parseFloat(formData.salary) || 0,
-            dateOfBirth: formData.dateOfBirth,
-            timings: formData.timings,
-            address: formData.address,
-            additionalDetails: formData.additionalDetails,
-            avatar: formData.avatar || "",
-            permissions: {
-                dashboard: true,
-                reports: formData.role === "Manager" || formData.role === "Admin",
-                inventory: true,
-                orders: true,
-                customers: true,
-                settings: formData.role === "Manager" || formData.role === "Admin"
-            },
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-
-        // 3. Create notification
-        await addDoc(collection(db, "notifications"), {
-            title: "New Staff Added",
-            message: `${formData.fullName} joined as ${formData.role}`,
-            type: "staff",
-            read: false,
-            createdAt: serverTimestamp(),
-        });
-
-        // 4. Reset form and close modal
-        setIsModalOpen(false);
+    const handleEditClick = (staff) => {
+        setEditingStaff(staff)
         setFormData({
-            fullName: "", email: "", password: "", adminPassword: "", role: "", phone: "", salary: "",
-            dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
-        });
+            fullName: staff.fullName || "",
+            email: staff.email || "",
+            password: "",  // Don't show existing password
+            role: staff.role || "",
+            phone: staff.phone || "",
+            salary: staff.salary || "",
+            dateOfBirth: staff.dateOfBirth || "",
+            timings: staff.timings || "",
+            address: staff.address || "",
+            additionalDetails: staff.additionalDetails || "",
+            avatar: staff.avatar || ""
+        })
+        setIsModalOpen(true)
+    }
 
-        // 5. 🔥 RE-LOGIN AS ADMIN
-        // createUserWithEmailAndPassword logged us out, so we log back in
-        if (adminEmail && formData.adminPassword) {
-            try {
-                await signInWithEmailAndPassword(auth, adminEmail, formData.adminPassword);
-                console.log("✅ Admin re-logged in successfully");
-            } catch (reloginErr) {
-                console.error("❌ Admin re-login failed:", reloginErr);
-                alert("Staff created, but admin session lost. Please log in again.");
-                // Optional: redirect to login
-                // navigate("/");
-                return;
-            }
+    const handleUpdateStaff = async () => {
+        if (!formData.fullName || !formData.email || !formData.role) {
+            alert("Please fill in required fields: Name, Email, Role")
+            return
         }
 
-        alert(`✅ Staff created successfully!\nEmail: ${formData.email}\nPassword: ${formData.password}`);
+        try {
+            await updateDoc(doc(db, "users", editingStaff.id), {
+                fullName: formData.fullName,
+                email: formData.email,
+                role: formData.role,
+                phone: formData.phone,
+                salary: parseFloat(formData.salary) || 0,
+                dateOfBirth: formData.dateOfBirth,
+                timings: formData.timings,
+                address: formData.address,
+                additionalDetails: formData.additionalDetails,
+                avatar: formData.avatar,
+                updatedAt: serverTimestamp()
+            })
 
-    } catch (error) {
-        console.error("Add error:", error);
-        alert("Failed to add staff: " + error.message);
-        
-        // 🔥 TRY TO RE-LOGIN ADMIN EVEN ON ERROR
-        if (adminEmail && formData.adminPassword) {
-            try {
-                await signInWithEmailAndPassword(auth, adminEmail, formData.adminPassword);
-                console.log("✅ Admin re-logged in after error");
-            } catch (reloginErr) {
-                console.error("❌ Failed to re-login admin after error:", reloginErr);
-                alert("Admin session lost. Please log in again.");
-            }
+            setIsModalOpen(false)
+            setEditingStaff(null)
+            setFormData({
+                fullName: "", email: "", password: "", role: "", phone: "", salary: "",
+                dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
+            })
+
+            alert("Staff updated successfully!")
+
+        } catch (error) {
+            console.error("Update error:", error)
+            alert("Failed to update staff: " + error.message)
         }
     }
-};
+
+    const handleAddStaff = async () => {
+        // Validate all required fields
+        if (!formData.fullName || !formData.email || !formData.password || !formData.role) {
+            alert("Please fill in: Name, Email, Staff Password, Role, Your Admin Password")
+            return
+        }
+
+        // 🔥 CAPTURE ADMIN EMAIL BEFORE WE GET LOGGED OUT
+        const adminEmail = auth.currentUser?.email;
+
+        try {
+            // 1. Create Firebase Auth user → gets uid
+            // ⚠️ THIS LOGS OUT ADMIN AND LOGS IN NEW STAFF
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                formData.email,
+                formData.password
+            );
+            const { uid } = userCredential.user;
+
+            // 2. Create Firestore document WITH SAME UID as document ID
+            await setDoc(doc(db, "users", uid), {
+                uid: uid,
+                fullName: formData.fullName,
+                email: formData.email,
+                role: formData.role,
+                phone: formData.phone,
+                salary: parseFloat(formData.salary) || 0,
+                dateOfBirth: formData.dateOfBirth,
+                timings: formData.timings,
+                address: formData.address,
+                additionalDetails: formData.additionalDetails,
+                avatar: formData.avatar || "",
+                permissions: {
+                    dashboard: true,
+                    reports: formData.role === "Manager" || formData.role === "Admin",
+                    inventory: true,
+                    orders: true,
+                    customers: true,
+                    settings: formData.role === "Manager" || formData.role === "Admin"
+                },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            // 3. Create notification
+            await addDoc(collection(db, "notifications"), {
+                title: "New Staff Added",
+                message: `${formData.fullName} joined as ${formData.role}`,
+                type: "staff",
+                read: false,
+                createdAt: serverTimestamp(),
+            });
+
+            // 4. Reset form and close modal
+            setIsModalOpen(false);
+            setFormData({
+                fullName: "", email: "", password: "", role: "", phone: "", salary: "",
+                dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
+            });
+
+
+            if (adminEmail) {
+                try {
+                    await signInWithEmailAndPassword(auth, adminEmail, formData.adminPassword);
+                    console.log("✅ Admin re-logged in successfully");
+                } catch (reloginErr) {
+                    console.error("❌ Admin re-login failed:", reloginErr);
+                    alert("Staff created, but admin session lost. Please log in again.");
+                    // Optional: redirect to login
+                    // navigate("/");
+                    return;
+                }
+            }
+
+            alert(`✅ Staff created successfully!\nEmail: ${formData.email}\nPassword: ${formData.password}`);
+
+        } catch (error) {
+            console.error("Add error:", error);
+            alert("Failed to add staff: " + error.message);
+
+            if (adminEmail) {
+                const adminPassword = prompt("Enter your admin password to stay logged in:")
+                if (adminPassword) {
+                    try {
+                        await signInWithEmailAndPassword(auth, adminEmail, adminPassword)
+                        console.log("✅ Admin re-logged in successfully")
+                    } catch (reloginErr) {
+                        console.error("❌ Admin re-login failed:", reloginErr)
+                        alert("Staff created, but admin session lost. Please log in again.")
+                        return
+                    }
+                }
+            }
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -305,7 +362,9 @@ const handleAddStaff = async () => {
                                             }
                                             className="text-white cursor-pointer hover:text-[#F5C6CC]" />
 
-                                        <FiEdit2 className="text-white hover:text-[#F5C6CC] cursor-pointer" />
+                                        <FiEdit2
+                                            onClick={() => handleEditClick(staff)}
+                                            className="text-white hover:text-[#F5C6CC] cursor-pointer" />
 
                                         <FiTrash2
                                             onClick={() => handleDeleteStaff(staff.id)}
@@ -349,7 +408,7 @@ const handleAddStaff = async () => {
                         {/* HEADER */}
                         <div className="flex justify-between items-center p-6 border-b border-gray-700">
                             <h2 className="text-white text-2xl font-bold">
-                                Add Staff
+                                {editingStaff ? "Edit Staff" : "Add Staff"}
                             </h2>
 
                             <button
@@ -399,15 +458,6 @@ const handleAddStaff = async () => {
                                     value={formData.password || ""}
                                     onChange={handleInputChange}
                                     placeholder="Initial Password"
-                                    className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
-                                />
-
-                                <input
-                                    name="adminPassword"
-                                    type="password"
-                                    value={formData.adminPassword || ""}
-                                    onChange={handleInputChange}
-                                    placeholder="Your Admin Password (for re-login)"
                                     className="h-[56px] bg-[#343434] rounded-[10px] px-4 placeholder-gray-600 text-white"
                                 />
 
@@ -482,17 +532,24 @@ const handleAddStaff = async () => {
                         <div className="flex justify-end gap-4 p-6 border-t border-gray-700">
 
                             <button
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={() => {
+                                    setIsModalOpen(false)
+                                    setEditingStaff(null)
+                                    setFormData({
+                                        fullName: "", email: "", password: "", role: "", phone: "", salary: "",
+                                        dateOfBirth: "", timings: "", address: "", additionalDetails: "", avatar: ""
+                                    })
+                                }}
                                 className="text-white"
                             >
                                 Cancel
                             </button>
 
                             <button
-                                onClick={handleAddStaff}
+                                onClick={editingStaff ? handleUpdateStaff : handleAddStaff}
                                 className="w-[140px] h-[56px] bg-[#F4C7D7] text-[#0F0F0F] font-semibold rounded-[12px]"
                             >
-                                Confirm
+                                {editingStaff ? "Update" : "Confirm"}
                             </button>
 
                         </div>
