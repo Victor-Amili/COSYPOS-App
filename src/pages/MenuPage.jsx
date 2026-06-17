@@ -7,7 +7,7 @@ import MenuItemModal from "../components/modals/MenuItemModal";
 const MENU_TABS = ["Normal Menu", "Special Deals", "New Year Special", "Deserts and Drinks"];
 
 const CATEGORY_ICONS = {
-  All: "⊞", Pizza: "🍕", Burger: "🍔", Chicken: "🍗", Bakery: "🍞", Beverage: "☕", Seafood: "🦐",
+  All: "⊞", Pizza: "🍕", Burger: "🍔", Chicken: "🍗", Bakery: "🍞", Beverage: "🥤", Seafood: "🐟", Beef: "🥩"
 };
 
 export default function MenuPage() {
@@ -21,7 +21,6 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Original File Structure: Listens to 'categories' and 'products'
     const unsubCat = onSnapshot(collection(db, "categories"), (snap) => {
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
@@ -32,32 +31,34 @@ export default function MenuPage() {
     return () => { unsubCat(); unsubItems(); };
   }, []);
 
-  // FIXED: Dynamic real-time calculation based on the products arrays instead of old stored counts
   const allCategories = [
-    { id: "all", name: "All", icon: "", itemCount: menuItems.length },
+    { id: "all", name: "All", icon: "⊞", itemCount: menuItems.length },
     ...categories.map((cat) => ({
       ...cat,
-      itemCount: menuItems.filter((item) => item.categoryName === cat.name).length,
+      itemCount: menuItems.filter((item) => item.categoryName?.toLowerCase() === cat.name?.toLowerCase()).length,
     })),
   ];
 
-  // Original File Structure: Preserved the complete mapping and itemCategory logic
   const filteredItems = menuItems.filter((item) => {
-    const catMatch = selectedCategory === "All" || item.categoryName === selectedCategory;
+    // 1. Match Category (Case-insensitive)
+    const catMatch = selectedCategory === "All" || item.categoryName?.toLowerCase() === selectedCategory?.toLowerCase();
     
-    const itemCategory = categories.find(c => c.name === item.categoryName);
+    // 2. Match Tab Type safely
+    const itemCategory = categories.find(c => c.name?.toLowerCase() === item.categoryName?.toLowerCase());
     const tabMap = {
       "Normal Menu": "normal",
       "Special Deals": "special-deals",
       "New Year Special": "new-year-special",
       "Deserts and Drinks": "desserts-drinks"
     };
-    const tabMatch = itemCategory?.products === tabMap[activeTab];
+
+    // FALLBACK: If a category doesn't have a specific tab type assigned yet, default it to "Normal Menu"
+    const targetTabFieldValue = itemCategory?.products || "normal";
+    const tabMatch = targetTabFieldValue === tabMap[activeTab];
     
     return catMatch && tabMatch;
   });
 
-  // Original File Structure: Deletes from 'products' and 'categories'
   const handleDeleteItem = async (id) => {
     if (!window.confirm("Delete this item?")) return;
     await deleteDoc(doc(db, "products", id));
@@ -91,7 +92,7 @@ export default function MenuPage() {
           </button>
         </div>
 
-        {/* Desktop: horizontal scroll (New Appearance) */}
+        {/* Desktop Layout */}
         <div className="hidden md:flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {allCategories.map((cat) => (
             <CategoryCard
@@ -104,7 +105,7 @@ export default function MenuPage() {
           ))}
         </div>
 
-        {/* Mobile: 2-col grid (New Appearance) */}
+        {/* Mobile Layout */}
         <div className="grid grid-cols-2 gap-3 md:hidden">
           {allCategories.map((cat) => (
             <CategoryCard
@@ -152,7 +153,7 @@ export default function MenuPage() {
           </button>
         </div>
 
-        {/* Desktop Table (New Appearance + Original Data Fields: item.categoryName) */}
+        {/* Desktop Table View */}
         <div className="hidden md:block rounded-2xl overflow-hidden border border-white/5">
           <table className="w-full">
             <thead className="bg-[#1a1a1a]">
@@ -173,7 +174,7 @@ export default function MenuPage() {
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-white/30 text-sm">
-                    {loading ? "Loading..." : "No items found. Add a menu item to get started."}
+                    {loading ? "Loading..." : "No items found under this criteria."}
                   </td>
                 </tr>
               ) : (
@@ -224,7 +225,7 @@ export default function MenuPage() {
           </table>
         </div>
 
-        {/* Mobile: Card list (New Appearance + Original Data Fields: item.categoryName) */}
+        {/* Mobile View */}
         <div className="md:hidden space-y-3">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12 text-white/30 text-sm">
@@ -259,7 +260,7 @@ export default function MenuPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="text-white font-semibold text-sm">${parseFloat(item.price || 0).toFixed(2)}</span>
+                    <span className="text-brand font-semibold text-sm">${parseFloat(item.price || 0).toFixed(2)}</span>
                     <span className="text-white/40 text-xs">{item.stock} items</span>
                     <span className={`text-xs font-medium ${item.availability === "In Stock" ? "text-green-400" : "text-red-400"}`}>{item.availability}</span>
                   </div>
@@ -267,16 +268,6 @@ export default function MenuPage() {
               </div>
             ))
           )}
-        </div>
-
-        {/* Mobile: Add button */}
-        <div className="mt-6 sm:hidden flex justify-center">
-          <button
-            onClick={() => setMenuItemModal({ open: true, data: null })}
-            className="bg-brand hover:opacity-90 text-gray-800 font-semibold px-8 py-3 rounded-xl transition text-sm"
-          >
-            Add New Items
-          </button>
         </div>
       </section>
 
@@ -298,6 +289,9 @@ export default function MenuPage() {
 }
 
 function CategoryCard({ cat, isActive, onClick, onEdit, onDelete }) {
+  // Safe URL vs Emoji determination path
+  const isWebLink = cat.icon && (cat.icon.startsWith("http") || cat.icon.includes("/"));
+
   return (
     <div
       onClick={onClick}
@@ -315,11 +309,12 @@ function CategoryCard({ cat, isActive, onClick, onEdit, onDelete }) {
           )}
         </div>
       )}
-      <div className="text-2xl mb-6">
-        {cat.icon && !cat.icon.match(/[\u{1F300}-\u{1FFFF}]/u)
-          ? <img src={cat.icon} alt={cat.name} className="w-8 h-8 object-contain" />
-          : <span>{cat.icon || CATEGORY_ICONS[cat.name] || "🍽"}</span>
-        }
+      <div className="text-2xl mb-6 h-8 flex items-center">
+        {isWebLink ? (
+          <img src={cat.icon} alt={cat.name} className="w-8 h-8 object-contain" />
+        ) : (
+          <span>{cat.icon || CATEGORY_ICONS[cat.name] || "🍽"}</span>
+        )}
       </div>
       <p className={`text-sm font-semibold ${isActive ? "text-brand" : "text-white"}`}>{cat.name}</p>
       <p className="text-white/40 text-xs mt-0.5">{cat.itemCount ?? 0} items</p>

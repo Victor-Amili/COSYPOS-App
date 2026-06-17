@@ -19,10 +19,20 @@ const HOURS_ALL = Array.from({ length: 13 }, (_, i) => `${String(i + 9).padStart
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-function toYMD(date) { return date.toISOString().split("T")[0]; }
+function toYMD(date) { 
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`; 
+}
+
 function getDateLabel(dateStr) {
   const today = toYMD(new Date());
-  const tomorrow = toYMD(new Date(Date.now() + 86400000));
+  
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = toYMD(tomorrowDate);
+  
   if (dateStr === today) return "Today";
   if (dateStr === tomorrow) return "Tomorrow";
   const d = new Date(dateStr + "T00:00:00");
@@ -93,7 +103,7 @@ function DatePicker({ value, onChange }) {
           </div>
           <div className="flex gap-2 mt-4 pt-3 border-t border-white/10">
             <button type="button" onClick={() => { onChange(toYMD(new Date())); setOpen(false); }} className="flex-1 py-1.5 rounded-lg text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition">Today</button>
-            <button type="button" onClick={() => { onChange(toYMD(new Date(Date.now() + 86400000))); setOpen(false); }} className="flex-1 py-1.5 rounded-lg text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition">Tomorrow</button>
+            <button type="button" onClick={() => { const tmw = new Date(); tmw.setDate(tmw.getDate() + 1); onChange(toYMD(tmw)); setOpen(false); }} className="flex-1 py-1.5 rounded-lg text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition">Tomorrow</button>
           </div>
         </div>
       )}

@@ -12,10 +12,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  //   Legend,
 } from "recharts"
-
-
 
 const tabs = ["Reservation Report", "Revenue Report", "Staff Report"]
 const filterTabs = ["Confirmed", "Pending", "Cancelled"]
@@ -44,26 +41,26 @@ export default function ReservationReport() {
     return () => unsub()
   }, [])
 
-  // Compute pie data from real reservations
+  // Compute pie data safely using case-insensitive checks
   const pieData = [
     {
       name: "Confirmed",
-      value: reservations.filter(r => r.status === "confirmed").length,
+      value: reservations.filter(r => r.status?.toLowerCase().trim() === "confirmed").length,
       color: "#e75480"
     },
     {
       name: "Pending",
-      value: reservations.filter(r => r.status === "pending").length,
+      value: reservations.filter(r => r.status?.toLowerCase().trim() === "pending").length,
       color: "#c084a0"
     },
     {
       name: "Cancelled",
-      value: reservations.filter(r => r.status === "cancelled").length,
+      value: reservations.filter(r => r.status?.toLowerCase().trim() === "cancelled").length,
       color: "#7d3f5a"
     },
   ]
 
-  // Compute monthly line data
+  // Compute monthly line data safely using case-insensitive checks
   const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
   const lineData = monthNames.map((month, i) => {
     const monthReservations = reservations.filter(r => {
@@ -74,9 +71,9 @@ export default function ReservationReport() {
 
     return {
       month,
-      confirmed: monthReservations.filter(r => r.status === "confirmed").length,
-      pending: monthReservations.filter(r => r.status === "pending").length,
-      cancelled: monthReservations.filter(r => r.status === "cancelled").length,
+      confirmed: monthReservations.filter(r => r.status?.toLowerCase().trim() === "confirmed").length,
+      pending: monthReservations.filter(r => r.status?.toLowerCase().trim() === "pending").length,
+      cancelled: monthReservations.filter(r => r.status?.toLowerCase().trim() === "cancelled").length,
     }
   })
 
@@ -227,7 +224,6 @@ export default function ReservationReport() {
                 tick={{ fill: "#9ca3af", fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `${v / 1000}k`}
               />
               <Tooltip
                 contentStyle={{ backgroundColor: "#2d2d2d", border: "none", borderRadius: "8px" }}
@@ -243,8 +239,8 @@ export default function ReservationReport() {
               />
               <Line
                 type="monotone"
-                dataKey="awaited"
-                stroke={lineColors.awaited}
+                dataKey="pending"
+                stroke={lineColors.pending}
                 strokeWidth={2}
                 dot={false}
               />
@@ -255,8 +251,6 @@ export default function ReservationReport() {
                 strokeWidth={2}
                 dot={false}
               />
-
-
             </LineChart>
           </ResponsiveContainer>
         </div>

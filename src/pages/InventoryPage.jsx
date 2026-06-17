@@ -10,7 +10,6 @@ const STOCK_OPTIONS = [
   { label: "Low Stock", value: "low-stock" },
   { label: "Out of Stock", value: "out-of-stock" }
 ];
-const VALUE_OPTIONS = ["Litre", "Kg", "Gram", "Piece"].map((v) => ({ value: v, label: v }));
 const STATUS_FILTERS = ["All", "active", "inactive", "draft"];
 
 export default function InventoryPage() {
@@ -58,8 +57,8 @@ export default function InventoryPage() {
     setStockFilter("All");
     setValueFilter("Litre");
     setQuantity("");
-    setPriceMin("");
-    setPriceMax("");
+    priceMin && setPriceMin("");
+    priceMax && setPriceMax("");
   };
 
   // Original File Structure: Filter logic matches your original data fields
@@ -132,19 +131,6 @@ export default function InventoryPage() {
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Stock</h3>
               <CustomSelect value={stockFilter} onChange={setStockFilter} options={STOCK_OPTIONS} />
-            </div>
-
-            {/* Value */}
-            <div>
-              <h3 className="text-white font-semibold text-sm mb-3">Value</h3>
-              <CustomSelect value={valueFilter} onChange={setValueFilter} options={VALUE_OPTIONS} />
-            </div>
-
-            {/* Quantity */}
-            <div>
-              <h3 className="text-white font-semibold text-sm mb-3">Piece / Item / Quantity</h3>
-              <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="50"
-                className="w-full bg-[#2a2a2a] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand/60 transition text-sm" />
             </div>
 
             {/* Price */}
