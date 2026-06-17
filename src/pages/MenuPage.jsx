@@ -52,7 +52,7 @@ export default function MenuPage() {
       "New Year Special": "new-year-special",
       "Deserts and Drinks": "desserts-drinks"
     };
-    const tabMatch = itemCategory?.menuType === tabMap[activeTab];
+    const tabMatch = itemCategory?.products === tabMap[activeTab];
     
     return catMatch && tabMatch;
   });
