@@ -5,7 +5,7 @@ import { doc, onSnapshot, deleteDoc, updateDoc, getDocs, collection, query, wher
 import CustomSelect from "../components/CustomSelect";
 import CustomTimePicker from "../components/CustomTimePicker";
 
-// Table images - replace with real images
+// Table images
 const TABLE_IMAGES = {
   Bar: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200&h=400&fit=crop",
   A1: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&h=400&fit=crop",
@@ -27,15 +27,10 @@ const TABLE_IMAGES = {
   H1: "https://images.unsplash.com/photo-1550966871-3ed3cbe818b5?w=1200&h=400&fit=crop",
   H2: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1200&h=400&fit=crop",
   H3: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=400&fit=crop",
+  default: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=400&fit=crop",
 };
 
 const ALL_TABLES = ["Bar", "A1", "A2", "B1", "B2", "B3", "C1", "C2", "D1", "D2", "D3", "E1", "E2", "F1", "F2", "G1", "G2", "H1", "H2", "H3"];
-
-const TABLE_TO_FLOOR_GROUPS = {
-  "1st Floor": ["Bar", "A1", "A2", "B1", "B2", "B3", "C1", "C2"],
-  "2nd Floor": ["D1", "D2", "D3", "E1", "E2", "F1", "F2"],
-  "3rd Floor": ["G1", "G2", "H1", "H2", "H3"],
-};
 
 const TABLE_TO_FLOOR = {
   Bar: "1st Floor", A1: "1st Floor", A2: "1st Floor", B1: "1st Floor", B2: "1st Floor", B3: "1st Floor", C1: "1st Floor", C2: "1st Floor",
@@ -48,6 +43,7 @@ const FLOOR_TABLES_DETAIL = {
   "2nd Floor": ["D1", "D2", "D3", "E1", "E2", "F1", "F2"],
   "3rd Floor": ["G1", "G2", "H1", "H2", "H3"],
 };
+
 const GUEST_OPTIONS = [1,2,3,4,5].map((n) => ({ value: String(n), label: `${String(n).padStart(2,"0")} ${n===1?"person":"persons"}` }));
 const DURATION_OPTIONS = [{ value: "1", label: "1 hour" }, { value: "2", label: "2 hours" }, { value: "3", label: "3 hours" }];
 const HOURS_ALL = Array.from({ length: 13 }, (_, i) => `${String(i + 9).padStart(2, "0")}:00`);
@@ -63,37 +59,44 @@ export default function ReservationDetailPage() {
   const [editForm, setEditForm] = useState({ tableNumber: "", paxNumber: "", reservationTime: "", floor: "", duration: "1" });
   const [bookedHours, setBookedHours] = useState([]);
 
+  // Original File Structure: Listens directly to doc in 'reservations'
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "reservations", id), (snap) => {
       if (snap.exists()) {
         const data = { id: snap.id, ...snap.data() };
         setReservation(data);
+        
+        // Normalize loaded floor parameter formats securely
+        const currentFloor = data.floor ? (data.floor.endsWith("Floor") ? data.floor : `${data.floor} Floor`) : "1st Floor";
+        
         setEditForm({
           tableNumber: data.tableNumber || "",
           paxNumber: data.paxNumber || "",
           reservationTime: data.reservationTime || "",
-          floor: data.floor || "1st Floor",
+          floor: currentFloor,
           duration: data.duration || "1",
         });
-        setPickerFloor(data.floor || "1st Floor");
+        setPickerFloor(currentFloor);
       } else navigate("/reservation");
     });
     return () => unsub();
-  }, [id]);
+  }, [id, navigate]);
 
-  // Fetch booked hours for selected table on reservation's existing date
+  // Original File Structure: Collates busy blocks using original fallback keys
   useEffect(() => {
-    if (!editForm.tableNumber || !reservation?.reservateDate) return;
+    const targetDate = reservation?.reservationDate || reservation?.reservateDate;
+    if (!editForm.tableNumber || !targetDate) return;
+
     const fetchBooked = async () => {
       try {
         const q = query(collection(db, "reservations"),
           where("tableNumber", "==", editForm.tableNumber),
-          where("reservateDate", "==", reservation.reservateDate)
+          where("reservateDate", "==", targetDate)
         );
         const snap = await getDocs(q);
         const booked = [];
         snap.docs.forEach((d) => {
-          if (d.id === id) return; // skip self
+          if (d.id === id) return;
           const r = d.data();
           const startHour = parseInt(r.reservationTime?.slice(0, 2), 10);
           const dur = parseInt(r.duration || "1", 10);
@@ -102,14 +105,13 @@ export default function ReservationDetailPage() {
           }
         });
         setBookedHours(booked);
-        // Clear time if now booked
         if (booked.includes(editForm.reservationTime)) {
           setEditForm((prev) => ({ ...prev, reservationTime: "" }));
         }
       } catch (e) { console.error(e); }
     };
     fetchBooked();
-  }, [editForm.tableNumber, reservation?.reservateDate]);
+  }, [editForm.tableNumber, id, reservation?.reservationDate, reservation?.reservateDate]);
 
   const getDisabledHours = () => {
     const dur = parseInt(editForm.duration || "1", 10);
@@ -142,11 +144,13 @@ export default function ReservationDetailPage() {
     if (getDisabledHours().includes(editForm.reservationTime)) { setEditError("This time slot is already booked. Choose another."); return; }
     setEditError("");
     try {
-      const newFloor = TABLE_TO_FLOOR[editForm.tableNumber] || editForm.floor;
+      // Maps configuration targets safely back to standard short codes for Firestore
+      const targetFloorCode = (TABLE_TO_FLOOR[editForm.tableNumber] || editForm.floor).replace(" Floor", "");
       const currentDeposit = parseFloat(reservation.depositFee || 0);
+      
       await updateDoc(doc(db, "reservations", id), {
         tableNumber: editForm.tableNumber,
-        floor: newFloor,
+        floor: targetFloorCode,
         paxNumber: editForm.paxNumber,
         reservationTime: editForm.reservationTime,
         duration: editForm.duration,
@@ -165,6 +169,8 @@ export default function ReservationDetailPage() {
   }
 
   const tableImage = TABLE_IMAGES[reservation.tableNumber] || TABLE_IMAGES.default;
+  const displayDate = reservation.reservationDate || reservation.reservateDate;
+  const displayFloorName = reservation.floor ? (reservation.floor.endsWith("Floor") ? reservation.floor : `${reservation.floor} Floor`) : "—";
 
   return (
     <div className="text-white max-w-4xl">
@@ -184,8 +190,8 @@ export default function ReservationDetailPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
             {[
               { label: "Table Number", value: reservation.tableNumber },
-              { label: "No of Guests", value: reservation.paxNumber },
-              { label: "Reservation Date", value: reservation.reservateDate },
+              { label: "Pax Number", value: reservation.paxNumber },
+              { label: "Reservation Date", value: displayDate },
               { label: "Reservation Time", value: reservation.reservationTime },
               { label: "Deposit Fee", value: reservation.depositFee ? `${reservation.depositFee} $` : "—" },
               { label: "Status", value: reservation.status },
@@ -199,16 +205,16 @@ export default function ReservationDetailPage() {
         </div>
       </section>
 
-      {/* Customer Details */}
+      {/* Customer Details (Original Nested Fallback Structures) */}
       <section className="mb-5">
         <h2 className="text-white font-semibold text-base mb-3">Customer Details</h2>
         <div className="bg-[#1a1a1a] rounded-2xl p-5 border border-white/5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Title", value: reservation.title },
-              { label: "Full Name", value: reservation.fullName || `${reservation.firstName} ${reservation.lastName}` },
-              { label: "Phone number", value: reservation.phoneNumber },
-              { label: "Email Address", value: reservation.emailAddress },
+              { label: "Title", value: reservation.customer.title },
+              { label: "Full Name", value: reservation.customer ? `${reservation.customer.firstName} ${reservation.customer.lastName}` : (reservation.fullName || "—") },
+              { label: "Phone Number", value: reservation.customer?.phone || reservation.phoneNumber },
+              { label: "Email Address", value: reservation.customer?.email || reservation.emailAddress },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-white/40 text-xs mb-1">{label}</p>
@@ -225,10 +231,10 @@ export default function ReservationDetailPage() {
         <div className="bg-[#1a1a1a] rounded-2xl p-5 border border-white/5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Customer ID", value: reservation.customerId },
+              { label: "Customer ID", value: reservation.customerId || reservation.reservationId },
               { label: "Payment Method", value: reservation.paymentMethod },
-              { label: "Name", value: reservation.fullName || `${reservation.firstName} ${reservation.lastName}` },
-              { label: "Floor", value: reservation.floor },
+              { label: "Name", value: reservation.customer ? `${reservation.customer.firstName} ${reservation.customer.lastName}` : (reservation.fullName || "—") },
+              { label: "Floor", value: displayFloorName },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-white/40 text-xs mb-1">{label}</p>
@@ -256,15 +262,15 @@ export default function ReservationDetailPage() {
         </button>
       </div>
 
-      {/* Edit Reservation Panel - right side desktop, bottom sheet mobile */}
+      {/* Edit Drawer Panel */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex" onClick={() => setShowEditModal(false)}>
-          <div className="flex-1 bg-black/40" />
+          <div className="flex-1 bg-black/40 backdrop-blur-sm" />
           <div
             onClick={(e) => e.stopPropagation()}
             className="bg-[#1a1a1a] w-full sm:w-96 flex flex-col
               fixed bottom-0 left-0 right-0 rounded-t-2xl max-h-[90vh]
-              sm:static sm:rounded-none sm:max-h-full sm:min-h-screen overflow-y-auto"
+              sm:static sm:rounded-none sm:max-h-full sm:min-h-screen overflow-y-auto border-l border-white/5 shadow-2xl"
           >
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10 flex-shrink-0">
               <div>
@@ -275,7 +281,6 @@ export default function ReservationDetailPage() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Table image preview */}
               <div className="w-full h-36 rounded-xl overflow-hidden relative">
                 <img
                   src={TABLE_IMAGES[editForm.tableNumber] || TABLE_IMAGES.Bar}
@@ -286,7 +291,6 @@ export default function ReservationDetailPage() {
                 <p className="absolute bottom-3 left-3 text-white text-sm font-semibold">Table # {editForm.tableNumber}</p>
               </div>
 
-              {/* Floor */}
               <CustomSelect
                 label="Floor"
                 value={editForm.floor}
@@ -297,7 +301,6 @@ export default function ReservationDetailPage() {
                 options={Object.keys(FLOOR_TABLES_DETAIL).map((f) => ({ value: f, label: f }))}
               />
 
-              {/* Table grid */}
               <div>
                 <label className="text-white/60 text-xs mb-1.5 block">Table Number</label>
                 <div className="grid grid-cols-4 gap-2">
@@ -317,7 +320,6 @@ export default function ReservationDetailPage() {
                 </div>
               </div>
 
-              {/* No of Guests */}
               <CustomSelect
                 label="No of Guests"
                 value={editForm.paxNumber}
@@ -326,7 +328,6 @@ export default function ReservationDetailPage() {
                 placeholder="Select guests"
               />
 
-              {/* Duration */}
               <CustomSelect
                 label="Duration (hours)"
                 value={editForm.duration}
@@ -334,7 +335,6 @@ export default function ReservationDetailPage() {
                 options={DURATION_OPTIONS}
               />
 
-              {/* Time */}
               <CustomTimePicker
                 label="New Reservation Time"
                 value={editForm.reservationTime}
@@ -342,7 +342,6 @@ export default function ReservationDetailPage() {
                 disabledHours={getDisabledHours()}
               />
 
-              {/* Amendment Fee Notice */}
               <div className="bg-brand/10 border border-brand/20 rounded-xl px-4 py-3">
                 <p className="text-white/70 text-xs">Amendment fee of <span className="text-brand font-semibold">$30.00</span> added to current deposit of <span className="text-white font-semibold">${parseFloat(reservation.depositFee || 0).toFixed(2)}</span>.</p>
                 <p className="text-white font-semibold text-sm mt-1">New total: ${(parseFloat(reservation.depositFee || 0) + 30).toFixed(2)}</p>

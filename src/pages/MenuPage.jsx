@@ -18,31 +18,49 @@ export default function MenuPage() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [categoryModal, setCategoryModal] = useState({ open: false, data: null });
   const [menuItemModal, setMenuItemModal] = useState({ open: false, data: null });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Original File Structure: Listens to 'categories' and 'products'
     const unsubCat = onSnapshot(collection(db, "categories"), (snap) => {
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-    const unsubItems = onSnapshot(collection(db, "menuItems"), (snap) => {
+    const unsubItems = onSnapshot(collection(db, "products"), (snap) => {
       setMenuItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
     });
     return () => { unsubCat(); unsubItems(); };
   }, []);
 
+  // FIXED: Dynamic real-time calculation based on the products arrays instead of old stored counts
   const allCategories = [
     { id: "all", name: "All", icon: "", itemCount: menuItems.length },
-    ...categories,
+    ...categories.map((cat) => ({
+      ...cat,
+      itemCount: menuItems.filter((item) => item.categoryName === cat.name).length,
+    })),
   ];
 
+  // Original File Structure: Preserved the complete mapping and itemCategory logic
   const filteredItems = menuItems.filter((item) => {
-    const catMatch = selectedCategory === "All" || item.category === selectedCategory;
-    const tabMatch = item.menuTab === activeTab;
+    const catMatch = selectedCategory === "All" || item.categoryName === selectedCategory;
+    
+    const itemCategory = categories.find(c => c.name === item.categoryName);
+    const tabMap = {
+      "Normal Menu": "normal",
+      "Special Deals": "special-deals",
+      "New Year Special": "new-year-special",
+      "Deserts and Drinks": "desserts-drinks"
+    };
+    const tabMatch = itemCategory?.menuType === tabMap[activeTab];
+    
     return catMatch && tabMatch;
   });
 
+  // Original File Structure: Deletes from 'products' and 'categories'
   const handleDeleteItem = async (id) => {
     if (!window.confirm("Delete this item?")) return;
-    await deleteDoc(doc(db, "menuItems", id));
+    await deleteDoc(doc(db, "products", id));
   };
 
   const handleDeleteCategory = async (id) => {
@@ -73,7 +91,7 @@ export default function MenuPage() {
           </button>
         </div>
 
-        {/* Desktop: horizontal scroll */}
+        {/* Desktop: horizontal scroll (New Appearance) */}
         <div className="hidden md:flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {allCategories.map((cat) => (
             <CategoryCard
@@ -86,7 +104,7 @@ export default function MenuPage() {
           ))}
         </div>
 
-        {/* Mobile: 2-col grid */}
+        {/* Mobile: 2-col grid (New Appearance) */}
         <div className="grid grid-cols-2 gap-3 md:hidden">
           {allCategories.map((cat) => (
             <CategoryCard
@@ -134,7 +152,7 @@ export default function MenuPage() {
           </button>
         </div>
 
-        {/* Desktop Table */}
+        {/* Desktop Table (New Appearance + Original Data Fields: item.categoryName) */}
         <div className="hidden md:block rounded-2xl overflow-hidden border border-white/5">
           <table className="w-full">
             <thead className="bg-[#1a1a1a]">
@@ -155,7 +173,7 @@ export default function MenuPage() {
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-white/30 text-sm">
-                    No items found. Add a menu item to get started.
+                    {loading ? "Loading..." : "No items found. Add a menu item to get started."}
                   </td>
                 </tr>
               ) : (
@@ -178,7 +196,7 @@ export default function MenuPage() {
                     </td>
                     <td className="px-4 py-4 text-white/50 text-sm">{item.itemId || "—"}</td>
                     <td className="px-4 py-4 text-white/70 text-sm">{item.stock ? `${item.stock} items` : "—"}</td>
-                    <td className="px-4 py-4 text-white/70 text-sm">{item.category || "—"}</td>
+                    <td className="px-4 py-4 text-white/70 text-sm">{item.categoryName || "—"}</td>
                     <td className="px-4 py-4 text-white text-sm font-medium">${parseFloat(item.price || 0).toFixed(2)}</td>
                     <td className="px-4 py-4">
                       <span className={`text-sm font-medium ${item.availability === "In Stock" ? "text-green-400" : "text-red-400"}`}>
@@ -206,10 +224,12 @@ export default function MenuPage() {
           </table>
         </div>
 
-        {/* Mobile: Card list */}
+        {/* Mobile: Card list (New Appearance + Original Data Fields: item.categoryName) */}
         <div className="md:hidden space-y-3">
           {filteredItems.length === 0 ? (
-            <div className="text-center py-12 text-white/30 text-sm">No items found.</div>
+            <div className="text-center py-12 text-white/30 text-sm">
+              {loading ? "Loading..." : "No items found."}
+            </div>
           ) : (
             filteredItems.map((item) => (
               <div key={item.id} className="bg-[#1a1a1a] rounded-xl p-4 flex gap-3 border border-white/5">
@@ -223,7 +243,7 @@ export default function MenuPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-white text-sm font-medium">{item.name}</p>
-                      <p className="text-white/40 text-xs mt-0.5">{item.category} · {item.itemId}</p>
+                      <p className="text-white/40 text-xs mt-0.5">{item.categoryName} · {item.itemId}</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       <button onClick={() => setMenuItemModal({ open: true, data: item })} className="text-white/40 hover:text-white transition">

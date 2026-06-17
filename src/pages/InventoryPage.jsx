@@ -4,10 +4,14 @@ import { collection, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import InventoryModal from "../components/modals/InventoryModal";
 import CustomSelect from "../components/CustomSelect";
 
-const CATEGORIES = ["All", "Pizza", "Burger", "Chicken", "Bakery", "Beverage", "Seafood"].map((c) => ({ value: c, label: c }));
-const STOCK_OPTIONS = ["All", "Instock", "Out of Stock", "Low Stock"].map((s) => ({ value: s, label: s }));
+const STOCK_OPTIONS = [
+  { label: "All", value: "All" },
+  { label: "In Stock", value: "in-stock" },
+  { label: "Low Stock", value: "low-stock" },
+  { label: "Out of Stock", value: "out-of-stock" }
+];
 const VALUE_OPTIONS = ["Litre", "Kg", "Gram", "Piece"].map((v) => ({ value: v, label: v }));
-const STATUS_FILTERS = ["All", "Active", "Inactive", "Draft"];
+const STATUS_FILTERS = ["All", "active", "inactive", "draft"];
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -21,17 +25,31 @@ export default function InventoryPage() {
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState(["All"]);
 
+  // Original File Structure: Fetches dynamic filter options from 'categories'
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "inventory"), (snap) => {
-      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const unsub = onSnapshot(collection(db, "categories"), (snap) => {
+      const cats = snap.docs.map((d) => d.data().name);
+      setCategories(["All", ...cats]);
     });
     return () => unsub();
   }, []);
 
+  // Original File Structure: Listens directly to the 'products' collection
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "products"), (snap) => {
+      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // Original File Structure: Deletes directly from 'products'
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this inventory item?")) return;
-    await deleteDoc(doc(db, "inventory", id));
+    await deleteDoc(doc(db, "products", id));
   };
 
   const handleResetFilters = () => {
@@ -44,21 +62,25 @@ export default function InventoryPage() {
     setPriceMax("");
   };
 
+  // Original File Structure: Filter logic matches your original data fields
   const filteredItems = items.filter((item) => {
-    if (statusFilter !== "All" && item.status !== statusFilter) return false;
-    if (categoryFilter !== "All" && item.category !== categoryFilter) return false;
-    if (stockFilter !== "All" && item.stock !== stockFilter) return false;
+    if (statusFilter !== "All" && item.status?.toLowerCase() !== statusFilter.toLowerCase()) return false;
+    if (categoryFilter !== "All" && item.categoryName !== categoryFilter) return false;
+    if (stockFilter !== "All" && item.stockStatus !== stockFilter) return false;
     if (priceMin && parseFloat(item.price) < parseFloat(priceMin)) return false;
     if (priceMax && parseFloat(item.price) > parseFloat(priceMax)) return false;
     return true;
   });
-
+  
   const statusCounts = {
     All: items.length,
-    Active: items.filter((i) => i.status === "Active").length,
-    Inactive: items.filter((i) => i.status === "Inactive").length,
-    Draft: items.filter((i) => i.status === "Draft").length,
+    active: items.filter((i) => i.status === "active").length,
+    inactive: items.filter((i) => i.status === "inactive").length,
+    draft: items.filter((i) => i.status === "draft").length,
   };
+
+  // Format dynamic categories to pass safely into your CustomSelect components
+  const categoryOptions = categories.map((c) => ({ value: c, label: c }));
 
   return (
     <div className="text-white">
@@ -91,7 +113,7 @@ export default function InventoryPage() {
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition border ${
                       statusFilter === s ? "border-brand/50 bg-brand/10 text-white" : "border-white/10 bg-[#2a2a2a] text-white/60 hover:border-white/20"
                     }`}>
-                    <span>{s}</span>
+                    <span>{s === "All" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}</span>
                     <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${statusFilter === s ? "bg-brand text-gray-800" : "bg-white/10 text-white/50"}`}>
                       {statusCounts[s]}
                     </span>
@@ -100,13 +122,13 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* Category */}
+            {/* Category (New Appearance + Original Database Options) */}
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Category</h3>
-              <CustomSelect value={categoryFilter} onChange={setCategoryFilter} options={CATEGORIES} />
+              <CustomSelect value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
             </div>
 
-            {/* Stock */}
+            {/* Stock (New Appearance + Original Value Parameters) */}
             <div>
               <h3 className="text-white font-semibold text-sm mb-3">Stock</h3>
               <CustomSelect value={stockFilter} onChange={setStockFilter} options={STOCK_OPTIONS} />
@@ -159,7 +181,11 @@ export default function InventoryPage() {
           </div>
 
           <div className="space-y-3">
-            {filteredItems.length === 0 ? (
+            {loading ? (
+              <div className="bg-[#1a1a1a] rounded-2xl p-12 text-center text-white/30 text-sm border border-white/5">
+                Loading inventory...
+              </div>
+            ) : filteredItems.length === 0 ? (
               <div className="bg-[#1a1a1a] rounded-2xl p-12 text-center text-white/30 text-sm border border-white/5">
                 No inventory items found.
               </div>
@@ -175,18 +201,18 @@ export default function InventoryPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium text-sm">{item.name}</p>
                     <p className="text-white/40 text-xs mt-0.5">
-                      Stocked Product : <span className="text-brand font-semibold">{item.quantity} In Stock</span>
+                      Stocked Product : <span className="text-brand font-semibold">{item.stock || 0} In Stock</span>
                     </p>
                   </div>
                   <div className="hidden sm:flex items-center gap-6 flex-shrink-0">
                     <div className="text-center">
                       <p className="text-white/40 text-xs">Status</p>
-                      <p className="text-white text-sm font-medium mt-0.5">{item.status}</p>
+                      <p className="text-white text-sm font-medium mt-0.5">{item.status || "—"}</p>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="text-center">
                       <p className="text-white/40 text-xs">Category</p>
-                      <p className="text-white text-sm font-medium mt-0.5">{item.category || "—"}</p>
+                      <p className="text-white text-sm font-medium mt-0.5">{item.categoryName || "—"}</p>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="text-center">
@@ -217,7 +243,7 @@ export default function InventoryPage() {
         isOpen={inventoryModal.open}
         onClose={() => setInventoryModal({ open: false, data: null })}
         item={inventoryModal.data}
-        onSaved={() => {}}
+        onSaved={() => setInventoryModal({ open: false, data: null })}
       />
     </div>
   );
