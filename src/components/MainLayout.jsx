@@ -7,7 +7,7 @@ function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen bg-black text-white">
+    <div className="flex h-screen bg-black text-white overflow-hidden">
 
       {/* Sidebar */}
       <Sidebar
@@ -24,13 +24,13 @@ function MainLayout() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-col flex-1 w-full">
+      <div className="flex flex-col flex-1 w-full min-w-0 overflow-hidden">
 
         {/* Navbar (controls sidebar) */}
         <Navbar setSidebarOpen={setSidebarOpen} />
 
         {/* Page Content */}
-        <main className="flex-1 p-6 overflow-hidden">
+        <main className="flex-1 p-6 overflow-y-auto">
           <Outlet />
         </main>
 

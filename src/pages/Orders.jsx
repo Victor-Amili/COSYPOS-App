@@ -5,6 +5,7 @@ import { getStatusBadgeStyle, getStatusDot } from "../datas/dummyData";
 import { db } from "../firebase/config";
 import { collection, onSnapshot, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
+
 function Orders() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();

@@ -16,6 +16,7 @@ import ReservationDetailPage from "./pages/ReservationDetailPage"
 import StaffManagement from "./pages/StaffManagement"
 import Attendance from "./pages/Attendance"
 import StaffProfile from "./pages/StaffProfile"
+import Profile from "./pages/Profile"
 import Login from "./pages/Login";
 import ForgottenPassword from "./pages/ForgottenPassword";
 import CustomerPayment from "./pages/CustomerPayment";
@@ -52,6 +53,8 @@ function App() {
             <Route path="/reports" element={<ReservationReport />} />
             <Route path="/revenue-report" element={<RevenueReport />} />
             <Route path="/staff-report" element={<StaffReport />} />
+            <Route path="/profile" element={<Profile />} />
+            
 
           </Route>
         </Route>
